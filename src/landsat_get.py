@@ -34,14 +34,12 @@ class Landsat:
     def __init__(
         self,
         aoi_path,
-        cloud_coverage,
         save_path,
         date_window,
         buffer=10000,
-        collection="landsat-c2-l2",
+        collection="naip",
         force_update=False,
     ) -> None:
-        self.cloud_coverage: float = cloud_coverage
         self.aoi_path: str = aoi_path
         self.save_path: str = save_path
         self.buffer: int = buffer
@@ -55,7 +53,6 @@ class Landsat:
 
         # Subset bands of interest in Landsat collection
         self.bands: list[str] = ["blue", "green", "red", "nir08", "swir16", "qa_pixel"]
-        self.platform: list[str] = ["landsat-4", "landsat-5", "landsat-8", "landsat-9"]
 
     @cached_property
     def catalog(self) -> pystac_client.Client:
@@ -71,12 +68,22 @@ class Landsat:
         """Property store for area of interests"""
 
         if isinstance(self.aoi_path, str):
-            aoi: gpd.GeoDataFrame = gpd.read_file(self.aoi_path)
+            file_suffix = Path(self.aoi_path).suffix
+            if ".csv" == file_suffix:
+                aoi: gdp.GeoDataFrame = gpd.GeoDataFrame(
+                        points[cols],
+                        geometry=gpd.points_from_xy(points.lon, points.lat),
+                        crs = "4326"
+                        )
+            elif ".shp" == file_suffix:
+                aoi: gpd.GeoDataFrame = gpd.read_file(self.aoi_path)
+            else:
+                raise ValueError(f"{file_suffix} is not supported.")
 
         elif isinstance(self.aoi_path, gpd.GeoDataFrame):
             aoi: gpd.GeoDataFrame = self.aoi_path
         else:
-            raise RuntimeError(f"{self.aoi_path} is not a valid format")
+            raise RuntimeError(f"{self.aoi_path} is not a valid format.")
 
         # Check projection and reproject to vanilla mercator
         if aoi.crs.to_epsg() != "4326":
@@ -120,32 +127,13 @@ class Landsat:
         search = self.catalog.search(
             collections=self.collection,
             bbox=geometry_bounds,
-            datetime=timerange,
-            query={
-                "eo:cloud_cover": {"lt": self.cloud_coverage},
-                "platform": {"in": self.platform},
-            },
+            datetime=timerange
         )
 
         # Make collection
         items_search = search.get_all_items()
 
-        # Filter out all the items that do not cover the geometry 100%. This
-        # might not be what we want in all applications (i.e. building a mosaic
-        # or a composite), but for now is convenient to do it here.
-        item_aoi_coverage: list[str] = [
-            intersection_percent(item, geometry_obj) for item in items_search.items
-        ]
-
-        print(item_aoi_coverage)
-
-        filter_items = [
-            item
-            for item, coverage in zip(items_search, item_aoi_coverage)
-            if float(coverage) > 99
-        ]
-
-        return filter_items
+        return items_search
 
     def execute_search_aoi(self):
         """Execute search in all the elements of the AOI"""
