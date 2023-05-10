@@ -4,7 +4,7 @@ import os
 import shutil
 from urllib.parse import urlparse
 import warnings
-
+import rioxarray
 import dask.dataframe as dd
 import geopandas as gpd
 import numpy as np
@@ -16,10 +16,8 @@ import requests
 from shapely import geometry
 from tqdm import tqdm
 
-import adlfs
-import stackstac
-from utils import intersection_percent
 
+import pdb
 
 class NAIP:
     """Search and download NAIP imagery
@@ -38,7 +36,7 @@ class NAIP:
     ) -> None:
         self.aoi_path: str = aoi_path
         self.save_path: str = save_path
-        self.aoi_date = "fire_start_date"
+        self.aoi_date = "fire_start"
         self.id = "homeid"
         self.collection: str = collection
 
@@ -49,6 +47,10 @@ class NAIP:
 
         # Subset bands of interest in Landsat collection
         self.bands: list[str] = ["blue", "green", "red"]
+
+        # Create save directory if not present
+        if not os.path.exists(self.save_path):
+            os.makedirs(self.save_path)
 
     @cached_property
     def catalog(self) -> pystac_client.Client:
@@ -117,9 +119,8 @@ class NAIP:
 
         search = self.catalog.search(
             collections=self.collection,
-            intersects==geometry_bounds,
-            datetime=timerange
-        )
+            intersects=geometry_obj,
+            datetime=timerange)
 
         # Make collection
         items_search = search.get_all_items()
@@ -132,47 +133,40 @@ class NAIP:
         dict_aoi: list = self.aoi.to_dict(orient="records")
 
         for aoi_element in tqdm(dict_aoi, desc="Downloading from PC..."):
+            try:
+                items_aoi = self.request_items_stac(
+                    start_date=aoi_element["pre_date"],
+                    end_date=aoi_element["post_date"],
+                    geometry_obj=aoi_element["geometry"],
+                )
 
-            # Create path to later check for file existence
-            path_to_save = os.path.join(
-                self.save_path, f"{aoi_element['Event_ID']}.nc4"
-            )
+                if len(items_aoi) > 0:
 
-            if not os.path.exists(path_to_save):
-                try:
-                    items_aoi = self.request_items_stac(
-                        start_date=aoi_element["pre_date"],
-                        end_date=aoi_element["post_date"],
-                        geometry_obj=aoi_element["geometry"],
-                    )
+                    for item in items_aoi:
+                        asset_url = item.assets["image"].href
+                        ds = (
+                                rioxarray.open_rasterio(asset_url)
+                                .sel(band=[1, 2, 3])
+                            )
 
-                    if len(items_aoi) > 0:
+                        minx, miny, maxx, maxy = aoi_element["geometry"].bounds
+                        clipped = ds.rio.clip_box(minx, miny, maxx, maxy, 
+                                                  crs = 4326)
+                        
+                        # Save file using homeid and naip id
+                        name = f"{aoi_element[self.id]}_{item.id}.png"
+                        save_path = os.path.join(self.save_path, name)
+                        clipped.rio.to_raster(save_path, driver="PNG")
 
-                        for item in items_aoi:
-                            asset_url = item.assets["image"].href
-                            ds = (
-                                    rioxarray.open_raster(asset_url)
-                                    .sel(band=[1, 2, 3])
-                                )
+                else:
+                    print(f"{aoi_element[self.id]} has no items!")
 
-                            minx, miny, maxx, maxy = aoi["geometry"].bounds
-                            clipped = ds.rio.clip_box(minx, miny, maxx, maxy, 
-                                                      crs = 4326)
-                            
-                            # Save file using homeid and naip id
-                            name = f"{aoi[self.id]}_{item.id}.png"
-                            save_path = os.path.join(self.path_to_save, name)
-                            clipped.rio.to_raster(save_path, driver="PNG"
+            except RuntimeError as e:
+                print(f"{aoi_element[self.id]} failed with: {e}")
+                pass
 
-                    else:
-                        print(f"{aoi_element['Event_ID']} has no items!")
-
-                except RuntimeError as e:
-                    print(f"{aoi_element['Event_ID']} failed with: {e}")
-                    pass
-
-                except ValueError as e:
-                    print(f"{aoi_element['Event_ID']} failed with: {e}")
-                    pass
+            except ValueError as e:
+                print(f"{aoi_element[self.id]} failed with: {e}")
+                pass
 
         return None
