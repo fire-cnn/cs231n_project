@@ -142,21 +142,28 @@ class NAIP:
 
                 if len(items_aoi) > 0:
 
+                    # Loop over each asset per aoi
                     for item in items_aoi:
-                        asset_url = item.assets["image"].href
-                        ds = (
-                                rioxarray.open_rasterio(asset_url)
-                                .sel(band=[1, 2, 3])
-                            )
 
-                        minx, miny, maxx, maxy = aoi_element["geometry"].bounds
-                        clipped = ds.rio.clip_box(minx, miny, maxx, maxy, 
-                                                  crs = 4326)
-                        
                         # Save file using homeid and naip id
                         name = f"{aoi_element[self.id]}_{item.id}.png"
                         save_path = os.path.join(self.save_path, name)
-                        clipped.rio.to_raster(save_path, driver="PNG")
+                        
+                        if not os.path.exists(save_path):
+                            asset_url = item.assets["image"].href
+                            ds = (
+                                    rioxarray.open_rasterio(asset_url)
+                                    .sel(band=[1, 2, 3])
+                                )
+
+                            minx, miny, maxx, maxy = aoi_element["geometry"].bounds
+                            clipped = ds.rio.clip_box(minx, miny, maxx, maxy, 
+                                                      crs = 4326)
+                            
+                            # Save to PNG 
+                            clipped.rio.to_raster(save_path, driver="PNG")
+                        else:
+                            print(f"Product is already saved")
 
                 else:
                     print(f"{aoi_element[self.id]} has no items!")
