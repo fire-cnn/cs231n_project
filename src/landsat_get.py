@@ -5,14 +5,11 @@ import shutil
 from urllib.parse import urlparse
 import warnings
 
-from rasterio.enums import Resampling
 import dask.dataframe as dd
 import geopandas as gpd
 import numpy as np
-from osgeo import gdal
 import pandas as pd
 import planetary_computer
-import polars as pl
 import pystac
 import pystac_client
 import requests
@@ -24,10 +21,10 @@ import stackstac
 from utils import intersection_percent
 
 
-class Landsat:
-    """Search and download Landsat imagery
+class NAIP:
+    """Search and download NAIP imagery
 
-    This class searchs and download Landsat scenes corresponding to overlapping
+    This class searchs and download NAIP scenes corresponding to overlapping
     geometries and metadata.
     """
 
@@ -36,14 +33,13 @@ class Landsat:
         aoi_path,
         save_path,
         date_window,
-        buffer=10000,
         collection="naip",
         force_update=False,
     ) -> None:
         self.aoi_path: str = aoi_path
         self.save_path: str = save_path
-        self.buffer: int = buffer
-        self.aoi_date = "Ig_Date"
+        self.aoi_date = "fire_start_date"
+        self.id = "homeid"
         self.collection: str = collection
 
         if not isinstance(date_window, tuple):
@@ -52,7 +48,7 @@ class Landsat:
             self.date_window: tuple = date_window
 
         # Subset bands of interest in Landsat collection
-        self.bands: list[str] = ["blue", "green", "red", "nir08", "swir16", "qa_pixel"]
+        self.bands: list[str] = ["blue", "green", "red"]
 
     @cached_property
     def catalog(self) -> pystac_client.Client:
@@ -71,7 +67,7 @@ class Landsat:
             file_suffix = Path(self.aoi_path).suffix
             if ".csv" == file_suffix:
                 aoi: gdp.GeoDataFrame = gpd.GeoDataFrame(
-                        points[cols],
+                        points,
                         geometry=gpd.points_from_xy(points.lon, points.lat),
                         crs = "4326"
                         )
@@ -119,14 +115,9 @@ class Landsat:
         end_time_str: str = end_date.strftime("%Y-%m-%d")
         timerange: str = f"{start_time_str}/{end_time_str}"
 
-        if hasattr(geometry_obj, "__geo_interface__"):
-            geometry_bounds = geometry_obj.bounds
-        else:
-            geometry_bounds = geometry_obj
-
         search = self.catalog.search(
             collections=self.collection,
-            bbox=geometry_bounds,
+            intersects==geometry_bounds,
             datetime=timerange
         )
 
@@ -157,37 +148,22 @@ class Landsat:
 
                     if len(items_aoi) > 0:
 
-                        data = stackstac.stack(
-                            items_aoi,
-                            bounds=aoi_element["geometry"].bounds,
-                            assets=self.bands,
-                            epsg=4326,
-                            resampling=Resampling.bilinear,
-                            snap_bounds=True,
-                        )
+                        for item in items_aoi:
+                            asset_url = item.assets["image"].href
+                            ds = (
+                                    rioxarray.open_raster(asset_url)
+                                    .sel(band=[1, 2, 3])
+                                )
 
-                        data.attrs = {}
-                        data = data.drop(
-                            [
-                                "instruments",
-                                "raster:bands",
-                                "center_wavelength",
-                                "proj:epsg",
-                                "gsd",
-                                "landsat:collection_category",
-                                "landsat:collection_number",
-                                "landsat:correction",
-                                "landsat:wrs_type",
-                                "description",
-                                "view:off_nadir",
-                                "landsat:wrs_path",
-                                "landsat:wrs_row",
-                                "sci:doi",
-                                "classification:bitfields",
-                            ]
-                        )
+                            minx, miny, maxx, maxy = aoi["geometry"].bounds
+                            clipped = ds.rio.clip_box(minx, miny, maxx, maxy, 
+                                                      crs = 4326)
+                            
+                            # Save file using homeid and naip id
+                            name = f"{aoi[self.id]}_{item.id}.png"
+                            save_path = os.path.join(self.path_to_save, name)
+                            clipped.rio.to_raster(save_path, driver="PNG"
 
-                        data.to_netcdf(path_to_save)
                     else:
                         print(f"{aoi_element['Event_ID']} has no items!")
 
@@ -198,6 +174,5 @@ class Landsat:
                 except ValueError as e:
                     print(f"{aoi_element['Event_ID']} failed with: {e}")
                     pass
-
 
         return None
