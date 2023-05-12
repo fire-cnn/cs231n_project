@@ -17,7 +17,7 @@ from torchvision import datasets, models, transforms
 from tqdm import tqdm
 
 from src.dataset import NAIPImagery
-
+from src.utils_training import save_batch_images
 
 def make(config):
     # Split train/test
@@ -27,12 +27,12 @@ def make(config):
     # Create DataLoaders for train and test datasets
     train_loader = DataLoader(
         train_set, 
-        batch_size=config.batch_size, 
+        batch_size=config.batch_size_test, 
         shuffle=True, 
         num_workers=config.num_workers
     )
     test_loader = DataLoader(
-        test_set, batch_size=config.batch_size, 
+        test_set, batch_size=config.batch_size_train, 
         shuffle=True, 
         num_workers=config.num_workers
     )
@@ -47,32 +47,77 @@ def make(config):
     # Make the loss and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(
-        model.parameters(), lr=config.learning_rate)
+        model.parameters(), lr=config.learning_rate, weight_decay=1e-3)
     
-    # Decay LR by a factor of 0.1 every 7 epochs
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+    scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
     return model, train_loader, test_loader, criterion, scheduler, optimizer
 
 
+def fine_tuning_parameters(model, strategy = "full"):
+    """ Select fine tuning strategy for pre-trained model
+
+    This function will take a pre-trained model (either PyTorch or HH) and will
+    select the parameters for fine-tuning. We implemented several types of FT,
+    being "full" the default strategy. The options are:
+        - full: all parameters are fine tuned
+        - 'lp': linear probbing (only linear layers are updated)
+        - 'last': only last layer is updated
+        - 'first': only first layer is updated
+
+
+    Args:
+        - model: A PyTorch model object
+        - strategy str: a strategy for FT
+
+    Returns:
+        A dict of parameters to pass to optimizer
+    """
+
+        len_blocks =  len(model.transformer.h)
+
+    if mode == 'full':
+        return [x for x in model.parameters()]
+    elif mode == 'last':
+        return [x for x in model.transformer.h[-2:].parameters()]
+    elif mode == 'first':
+        return [x for x in model.transformer.h[:2].parameters()]
+    elif mode == 'middle':
+        mid = (len_blocks + 1) // 2
+        mid_params = [model.transformer.h[i] for i in [mid, mid+1]]
+        return [x for i in mid_params for x in i.parameters()]
+    elif mode.startswith('lora'):
+        params = [x for x in model.modules() if isinstance(x, LoRAConv1DWrapper)]
+
+        params_lora = [x for i in params for k, x in i.named_parameters()
+                       if 'lora_A' in k or 'lora_B' in k]
+        return params_lora
+    else:
+        raise NotImplementedError()
+
+
 def train_batch(images, labels, model, optimizer, criterion):
-    images, labels = images.to(device), labels.to(device)
 
-    # Forward pass ➡
-    outputs = model(images)
-    loss = criterion(outputs, labels)
+    # Optimize me!
+    with torch.set_grad_enabled(True):
+        images, labels = images.to(device), labels.to(device)
+        
+        optimizer.zero_grad()
 
-    # Backward pass ⬅
-    optimizer.zero_grad()
-    loss.backward()
+        # Forward pass ➡
+        outputs = model(images)
+        loss = criterion(outputs, labels)
 
-    # Step with optimizer
-    optimizer.step()
+        # Backward pass ⬅
+        loss.backward()
 
-    return loss
+        # Step with optimizer
+        optimizer.step()
+   
+    return loss, outputs
 
 
-def train_model(model, train_loader, test_loader, criterion, optimizer, scheduler, config):
+def train_model(model, train_loader, test_loader, criterion, scheduler, optimizer, config):
     
     wandb.watch(model)
 
@@ -84,9 +129,10 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
 
         # Training step
         train_loss = []
+        correct, total = 0, 0
         for _, (images, labels) in enumerate(train_loader):
 
-            loss = train_batch(images, labels, model, optimizer, criterion)
+            loss, out = train_batch(images, labels, model, optimizer, criterion)
             example_ct +=  len(images)
             batch_ct += 1
 
@@ -94,19 +140,24 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
             if ((batch_ct + 1) % 25) == 0:
                 train_log(loss, example_ct, epoch)
             
+            # Log accuracy and loss batch
+            _, predicted = torch.max(out.data, 1)
+            total += labels.size(0)
+            correct += (predicted.cpu() == labels.cpu()).sum().item()
+
             train_loss.append(loss.item())
 
-        # Report epoch total loss
-        scheduler.step()
+        # Report epoch total loss and log into WB
         print(f"Epoch [{epoch}] training loss: {sum(train_loss)/len(train_loss)}")
         wandb.log({"train-loss": sum(train_loss)/len(train_loss)})
+        wandb.log({"train-acc": correct / total})
 
         # Validation step
         model.eval()
         with torch.no_grad():
             validation_loss = []
             correct, total = 0, 0
-            for images, labels in test_loader:
+            for idx, (images, labels) in enumerate(test_loader):
                 images, labels = images.to(device), labels.to(device)
                 outputs = model(images)
                 _, predicted = torch.max(outputs.data, 1)
@@ -117,12 +168,20 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
                 loss = criterion(outputs, labels)
                 validation_loss.append(loss)
 
+                print(f"Validation Loss batch: {loss}")
+                if loss > 2:
+                    save_batch_images(images.cpu(), 
+                                      f"batch_{idx}",
+                                      f"Loss: {loss}"
+                                      )
+
             print(f"Accuracy of the model on the {total} " +
                   f"test images: {correct / total:%}")
             
             wandb.log({"test-loss": sum(validation_loss)/len(validation_loss)})
             wandb.log({"test-accuracy": correct / total})
-        
+            scheduler.step()
+       
 
 def train_log(loss, example_ct, epoch):
     # Where the magic happens
@@ -143,7 +202,7 @@ def model_pipeline(hyperparameters, tags):
       model, train_loader, test_loader, criterion, scheduler, optimizer = make(config)
 
       # and use them to train the model
-      train_model(model, train_loader, test_loader, criterion, optimizer, scheduler, config)
+      train_model(model, train_loader, test_loader, criterion, scheduler, optimizer, config)
 
     return model
 
@@ -155,7 +214,7 @@ if __name__ == "__main__":
     parser.add_argument("--datafolder", type=str, help='Images/Labels folder')
     parser.add_argument("--subset_share", type=int, help='Divide dataset in x share')
     parser.add_argument("--tags", type=str, help='Enter tags for W&B')
-
+    
     # Instantiate arguments
     args = parser.parse_args()
     datafolder = args.datafolder
@@ -175,7 +234,8 @@ if __name__ == "__main__":
     # Define pre-processing
     preprocess = transforms.Compose([
         transforms.Resize((224), antialias=True),
-        transforms.CenterCrop(224)
+        transforms.CenterCrop(224),
+        transforms.RandomHorizontalFlip()
         ]
     )
 
@@ -187,10 +247,11 @@ if __name__ == "__main__":
 
     # Start W&B
     config = dict(
-            epochs=100,
-            batch_size=10,
-            learning_rate= 1e-5,
-            train_test_split=0.7,
+            epochs=30,
+            batch_size_train=16,
+            batch_size_test=16,
+            learning_rate= 1e-3,
+            train_test_split=0.8,
             num_workers=5,
             dataset=sub_dataset,
             architecture="ResNET"
