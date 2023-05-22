@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 from src.dataset import NAIPImagery
 from src.utils_training import save_batch_images
+from src.sampler import BalancedBatchSampler
 
 def make(config):
     # Split train/test
@@ -27,13 +28,15 @@ def make(config):
     # Create DataLoaders for train and test datasets
     train_loader = DataLoader(
         train_set, 
-        batch_size=config.batch_size_test, 
-        shuffle=True, 
+        batch_size=config.batch_size_test,
+        sampler=BalancedBatchSampler(train_set),
         num_workers=config.num_workers
     )
+    
     test_loader = DataLoader(
-        test_set, batch_size=config.batch_size_train, 
-        shuffle=True, 
+        test_set, 
+        batch_size=config.batch_size_train, 
+        sampler=BalancedBatchSampler(test_set),
         num_workers=config.num_workers
     )
 
@@ -47,7 +50,7 @@ def make(config):
     # Make the loss and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(
-        model.parameters(), lr=config.learning_rate, weight_decay=1e-3)
+        model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
     
     scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
@@ -64,6 +67,7 @@ def fine_tuning_parameters(model, strategy = "full"):
         - 'lp': linear probbing (only linear layers are updated)
         - 'last': only last layer is updated
         - 'first': only first layer is updated
+        - 'middle': middle of the parameter block is updated only
 
 
     Args:
@@ -74,7 +78,7 @@ def fine_tuning_parameters(model, strategy = "full"):
         A dict of parameters to pass to optimizer
     """
 
-        len_blocks =  len(model.transformer.h)
+    len_blocks =  len(model.transformer.h)
 
     if mode == 'full':
         return [x for x in model.parameters()]
@@ -248,9 +252,10 @@ if __name__ == "__main__":
     # Start W&B
     config = dict(
             epochs=30,
-            batch_size_train=16,
-            batch_size_test=16,
-            learning_rate= 1e-3,
+            batch_size_train=20,
+            batch_size_test=20,
+            learning_rate= 0.001,
+            weight_decay=0,
             train_test_split=0.8,
             num_workers=5,
             dataset=sub_dataset,
