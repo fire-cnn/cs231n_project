@@ -17,8 +17,8 @@ from pathlib import Path
 from src.utils import remove_overalpping_geometries
 
 parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+    description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+)
 parser.add_argument("--file")
 parser.add_argument("--buffer_size", default=40, type=int)
 parser.add_argument("--save_file")
@@ -26,17 +26,14 @@ args = parser.parse_args()
 
 
 def read_dataset(file, buffer_size, save_file):
-    """ Read and process data
-    """
+    """Read and process data"""
 
     file_suffix = Path(file).suffix
     if ".csv" == file_suffix:
         points = pd.read_csv(file)
         gdf = gpd.GeoDataFrame(
-                points,
-                geometry = gpd.points_from_xy(points["lon"], points["lat"]),
-                crs = 4326
-                )
+            points, geometry=gpd.points_from_xy(points["lon"], points["lat"]), crs=4326
+        )
     elif ".shp" == file_suffix:
         gdf = gpd.read_file(file)
     else:
@@ -45,15 +42,14 @@ def read_dataset(file, buffer_size, save_file):
     # Project to meters using 3857 -- not the best, but works well for USA
     # without big distortion
     gdf_meters = gdf.to_crs("EPSG:3857")
-    gdf_meters["geometry"] = gdf_meters.buffer(buffer_size, cap_style = 3)
+    gdf_meters["geometry"] = gdf_meters.buffer(buffer_size, cap_style=3)
 
     # Transform back to Mercator
     gdf = gdf_meters.to_crs("EPSG:4326")
-    
+
     # Clean overlaps!
     gdf_clean = remove_overalpping_geometries(gdf, save_file)
 
+
 if __name__ == "__main__":
     read_dataset(args.file, args.buffer_size, args.save_file)
-
-

@@ -19,6 +19,7 @@ from tqdm import tqdm
 
 import pdb
 
+
 class NAIP:
     """Search and download NAIP imagery
 
@@ -69,10 +70,10 @@ class NAIP:
             file_suffix = Path(self.aoi_path).suffix
             if ".csv" == file_suffix:
                 aoi: gdp.GeoDataFrame = gpd.GeoDataFrame(
-                        points,
-                        geometry=gpd.points_from_xy(points.lon, points.lat),
-                        crs = "4326"
-                        )
+                    points,
+                    geometry=gpd.points_from_xy(points.lon, points.lat),
+                    crs="4326",
+                )
             elif ".shp" == file_suffix:
                 aoi: gpd.GeoDataFrame = gpd.read_file(self.aoi_path)
             else:
@@ -118,9 +119,8 @@ class NAIP:
         timerange: str = f"{start_time_str}/{end_time_str}"
 
         search = self.catalog.search(
-            collections=self.collection,
-            intersects=geometry_obj,
-            datetime=timerange)
+            collections=self.collection, intersects=geometry_obj, datetime=timerange
+        )
 
         # Make collection
         items_search = search.get_all_items()
@@ -141,26 +141,20 @@ class NAIP:
                 )
 
                 if len(items_aoi) > 0:
-
                     # Loop over each asset per aoi
                     for item in items_aoi:
-
                         # Save file using homeid and naip id
                         name = f"{aoi_element[self.id]}_{item.id}.png"
                         save_path = os.path.join(self.save_path, name)
-                        
+
                         if not os.path.exists(save_path):
                             asset_url = item.assets["image"].href
-                            ds = (
-                                    rioxarray.open_rasterio(asset_url)
-                                    .sel(band=[1, 2, 3])
-                                )
+                            ds = rioxarray.open_rasterio(asset_url).sel(band=[1, 2, 3])
 
                             minx, miny, maxx, maxy = aoi_element["geometry"].bounds
-                            clipped = ds.rio.clip_box(minx, miny, maxx, maxy, 
-                                                      crs = 4326)
-                            
-                            # Save to PNG 
+                            clipped = ds.rio.clip_box(minx, miny, maxx, maxy, crs=4326)
+
+                            # Save to PNG
                             clipped.rio.to_raster(save_path, driver="PNG")
                         else:
                             print(f"Product is already saved")

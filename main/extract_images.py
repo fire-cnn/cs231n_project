@@ -14,25 +14,20 @@ from pathlib import Path
 from src.naip import NAIP
 
 parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+    description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+)
 parser.add_argument("--date_window_down", type=int)
 parser.add_argument("--date_window_up", type=int)
 parser.add_argument("--path_to_shape")
 parser.add_argument("--save_file")
 args = parser.parse_args()
 
-def main(aoi_path, save_path, date_window_up, date_window_down):
 
+def main(aoi_path, save_path, date_window_up, date_window_down):
     date_window = (date_window_down, date_window_up)
-    naip = NAIP(aoi_path = aoi_path,
-                save_path = save_path,
-                date_window = date_window
-                )
+    naip = NAIP(aoi_path=aoi_path, save_path=save_path, date_window=date_window)
     naip.execute_search_aoi()
 
+
 if __name__ == "__main__":
-    main(path_to_shape,
-         save_file,
-         date_window_up,
-         date_window_down)
+    main(path_to_shape, save_file, date_window_up, date_window_down)

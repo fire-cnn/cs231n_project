@@ -54,17 +54,18 @@ def buffer_bounding_box(bounds, buf=10000) -> tuple:
 
     return wgs84_bounds
 
+
 def remove_overalpping_geometries(df: gpd.GeoDataFrame, save_path: str = None):
-    """ Remove all overlapping geometries from GeoDataFrame
+    """Remove all overlapping geometries from GeoDataFrame
 
     This function removes all overlapping polygons within dataframe. The use
-    case of this function is to avoid label contamination. If we make sure 
+    case of this function is to avoid label contamination. If we make sure
     that the images are indenpendent, we are making sure we will have good
-    learning. 
+    learning.
 
     Be careful that the process does double iteration over the dataframe. Thus,
     we have in worst-case scenario a O(n * n), so it can take a while for big
-    files. 
+    files.
 
     Args:
         - df: A geopandas dataframe with unique polygons
@@ -72,12 +73,13 @@ def remove_overalpping_geometries(df: gpd.GeoDataFrame, save_path: str = None):
     """
 
     # Check for polygons
-    if 'Polygon' != df.geom_type.unique()[0]:
+    if "Polygon" != df.geom_type.unique()[0]:
         raise RuntimeError("Dataframe do not contain unique polygons.")
 
     non_overlap = []
-    for idx, row in tqdm(df.iterrows(), total = df.shape[0], 
-                         desc = "Removing overlapping geoms"):
+    for idx, row in tqdm(
+        df.iterrows(), total=df.shape[0], desc="Removing overlapping geoms"
+    ):
         if not any(row["geometry"].overlaps(g) for g in df.geometry):
             non_overlap.append(row)
 

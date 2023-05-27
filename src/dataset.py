@@ -63,7 +63,7 @@ class NAIPImagery(Dataset):
             id_var=self.id_var,
             column_name_map=self.dict_column_names,
             cols_template=cols_template,
-            columns_of_interest=self.columns_of_interest
+            columns_of_interest=self.columns_of_interest,
         )
 
     def __len__(self):
@@ -71,7 +71,7 @@ class NAIPImagery(Dataset):
 
     def __getitem__(self, idx):
         path_img = self.paths[idx]
-        
+
         # Get image id and get text prompt
         id_img = int(path_img.stem.split("_")[0])
         text_img = self.dict_prompts[id_img]
