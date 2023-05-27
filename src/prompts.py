@@ -11,6 +11,9 @@ def prompting(
     column_name_map,
     columns_of_interest,
     id_var,
+    final_prompt,
+    special_tokens=("<|startoftext|>", "<|endoftext|>", "<|pad|>"),
+    round_dec=3,
     template=None,
     cols_template=None,
 ):
@@ -32,14 +35,21 @@ def prompting(
         - column_name_map: a dict with a mapping between the column names
         and the desired names in text.
         - id_var str: column in data to build identifier in dictionary
+        - final_prompt str: Final prompt for the text model. Usually the question
+        we want to answer.
+        - template str: A text template.
+        - special_tokens tuple: A tuple with start, end, and padding tokens
         - columns_of_interest list: a list with the subset of columns to
         use from the data.
+        - round_dec int: Rounding decimals to this level
         - cols_template list: List with the columns in the order of the
         template placeholders.
 
     Returns:
         Dict of strings
     """
+
+    start, end, pad = special_tokens
 
     if prompt_type == "template" and template is None:
         raise ValueError(f"Template exepcted!")
@@ -56,7 +66,7 @@ def prompting(
         elif df_filtered[col_name].dtype == np.float64:
             df_filtered[col_name] = df_filtered[col_name].astype(float)
 
-    df_filtered = df_filtered.round(2)
+    df_filtered = df_filtered.round(round_dec)
 
     # Create prompt
     if prompt_type == "bank":
@@ -78,6 +88,7 @@ def prompting(
                     row_string.append(s)
 
             row_str = "\n".join(row_string)
+            row_str = f"{start} {row_str} \n {final_prompt} {end}"
             dict_rows[row[id_var]] = row_str
 
     elif prompt_type == "template":
@@ -85,6 +96,7 @@ def prompting(
         for idx, row in df_filtered.iterrows():
             row_subset = row[cols_template]
             s = template.format(*row_subset)
+            s = f"{start} {s} {final_prompt} {end}"
             dict_rows[row[id_var]] = s
 
     return dict_rows

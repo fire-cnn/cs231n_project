@@ -11,11 +11,6 @@ from torchvision.transforms import ToTensor
 from src.prompts import prompting
 
 
-def build_text_prompts(tabular_data_path, mode=None):
-    """Build text prompts from tabular data"""
-    pass
-
-
 class NAIPImagery(Dataset):
     def __init__(
         self,
