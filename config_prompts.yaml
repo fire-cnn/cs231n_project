@@ -1,5 +1,8 @@
 # Configuration file for prompting
 prompts:
+  label_column: destroyed
+  id_var: homeid
+  prompt_type: template
   columns_of_interest:
     - yearbuilt 
     - aspect
@@ -19,6 +22,7 @@ prompts:
     - riskToStru
     - firename
     - homeid
+    - destroyed
 
   dict_column_names:
     yearbuilt: Year Built,
@@ -57,4 +61,4 @@ prompts:
     - riskToStru
     - firename 
 
-  final_prompt: Is this house going to be destroyed? Yes or no? Answer:
+  final_prompt: "Is this house going to be destroyed? Yes or no? Answer:"

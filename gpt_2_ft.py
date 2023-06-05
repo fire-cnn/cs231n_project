@@ -108,24 +108,28 @@ def fine_tuning_parameters(model, strategy="full"):
         raise NotImplementedError()
 
 
-def train_batch(images, labels, model, optimizer, criterion):
+def train_batch(text, labels, model, optimizer):
     # Optimize me!
     with torch.set_grad_enabled(True):
-        images, labels = images.to(device), labels.to(device)
+        text, labels = text.to(device), labels.to(device)
 
         optimizer.zero_grad()
 
         # Forward pass ➡
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-
+        outputs = model(text, labels=labels)
+        loss, logits = outputs[:2]
+    
         # Backward pass ⬅
         loss.backward()
 
         # Step with optimizer
         optimizer.step()
 
-    return loss, outputs
+        # Clip the norm of the gradients to 1.0.
+        # This is to help prevent the "exploding gradients" problem.
+        nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+    return loss, logits
 
 
 def train_model(
@@ -141,17 +145,25 @@ def train_model(
         # Training step
         train_loss = []
         correct, total = 0, 0
-        for _, (images, labels) in enumerate(train_loader):
-            loss, out = train_batch(images, labels, model, optimizer, criterion)
-            example_ct += len(images)
+        for _, (images, text, labels) in enumerate(train_loader):
+            loss, logits = train_batch(text, labels, model, optimizer)
+            example_ct += len(text)
             batch_ct += 1
 
             # Report metrics every 25th batch
             if ((batch_ct + 1) % 25) == 0:
                 train_log(loss, example_ct, epoch)
+            
+            # Update the learning rate.
+            scheduler.step()
+
+            # Move logits and labels to CPU
+            logits = logits.detach().cpu().numpy()
+
+            # Convert these logits to list of predicted labels values.
+            predictions_labels += logits.argmax(axis=-1).flatten().tolist()
 
             # Log accuracy and loss batch
-            _, predicted = torch.max(out.data, 1)
             total += labels.size(0)
             correct += (predicted.cpu() == labels.cpu()).sum().item()
 
@@ -167,9 +179,9 @@ def train_model(
         with torch.no_grad():
             validation_loss = []
             correct, total = 0, 0
-            for idx, (images, labels) in enumerate(test_loader):
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
+            for idx, (images, text, labels) in enumerate(test_loader):
+                images, text, labels = images.to(device), text.to(device), labels.to(device)
+                outputs = model(text, labels)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
