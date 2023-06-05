@@ -3,7 +3,7 @@
 
 import pandas as pd
 import numpy as np
-
+from tqdm import tqdm
 
 def prompting(
     df,
@@ -12,6 +12,7 @@ def prompting(
     columns_of_interest,
     id_var,
     final_prompt,
+    label_column,
     special_tokens=("<|startoftext|>", "<|endoftext|>", "<|pad|>"),
     round_dec=3,
     template=None,
@@ -33,17 +34,18 @@ def prompting(
         - df: DataFrame tabular data
         - prompt_type str: a prompt style (bank or template)
         - column_name_map: a dict with a mapping between the column names
-        and the desired names in text.
+          and the desired names in text.
         - id_var str: column in data to build identifier in dictionary
         - final_prompt str: Final prompt for the text model. Usually the question
-        we want to answer.
+          we want to answer.
         - template str: A text template.
         - special_tokens tuple: A tuple with start, end, and padding tokens
+        - label_column str: Column in df storing the label.
         - columns_of_interest list: a list with the subset of columns to
-        use from the data.
+          use from the data.
         - round_dec int: Rounding decimals to this level
         - cols_template list: List with the columns in the order of the
-        template placeholders.
+          template placeholders.
 
     Returns:
         Dict of strings
@@ -71,10 +73,11 @@ def prompting(
     # Create prompt
     if prompt_type == "bank":
         dict_rows = {}
-        for idx, row in df_filtered.iterrows():
+        for idx, row in tqdm(df_filtered.iterrows(), total=df_filtered.shape[0],
+                             desc=f"Transforming tabular to {prompt_type} text prompts"):
             row_string = []
             for col in row.keys():
-                if col == id_var:
+                if col == id_var or col == label_column:
                     pass
                 else:
                     if isinstance(row[col], float):
@@ -88,15 +91,16 @@ def prompting(
                     row_string.append(s)
 
             row_str = "\n".join(row_string)
-            row_str = f"{start} {row_str} \n {final_prompt} {end}"
+            row_str = f"{start} {row_str}\n {final_prompt} {row[label_column]}{end}"
             dict_rows[row[id_var]] = row_str
 
     elif prompt_type == "template":
         dict_rows = {}
-        for idx, row in df_filtered.iterrows():
+        for idx, row in tqdm(df_filtered.iterrows(), total=df_filtered.shape[0],
+                             desc=f"Transforming tabular to {prompt_type} text prompts"):
             row_subset = row[cols_template]
             s = template.format(*row_subset)
-            s = f"{start} {s} {final_prompt} {end}"
+            s = f"{start} {s} {final_prompt} {row[label_column]}{end}"
             dict_rows[row[id_var]] = s
 
     return dict_rows
