@@ -130,8 +130,9 @@ def main(config, device, tags, dir_project):
                                                   )
 
     # Start trainer
-    training_args = TrainingArguments(output_dir="results",
+    training_args = TrainingArguments(output_dir=config_train["output_dir"],
                                       num_train_epochs=config_train["epochs"],
+                                      resume_from_checkpoint=config_train["resume_from_checkpoint"],
                                       load_best_model_at_end=True,
                                       save_strategy="epoch",
                                       evaluation_strategy="epoch",
