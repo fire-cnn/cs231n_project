@@ -1,11 +1,15 @@
 """ ViT fine-tuning
 """
 
+import pdb
 import argparse
 import torch
 import wandb
 import evaluate
-from transformers import ViTForImageClassification, ViTFeatureExtractor
+from transformers import (ViTForImageClassification, 
+                          ViTFeatureExtractor,
+                          TrainingArguments,
+                          Trainer)
 
 import numpy as np
 
@@ -26,22 +30,16 @@ def load_dataset(path_to_train,
     test_dataset = NAIPImagery(images_dir=path_to_test,
                                transform=preprocess,
                                tabular_data=tabular_data_path,
-                               tokenizer=tokenizer,
                                max_prompt_len=70,
-                               preprocess=preprocess,
-                               tokenizer=tokenizer,
-                               **config_prompt.prompt_config)
+                               tokenizer=tokenizer)
 
 
     # Training dataset
     training_dataset = NAIPImagery(images_dir=path_to_train,
-                                   transform=preprocess,
                                    tabular_data=tabular_data_path,
                                    tokenizer=tokenizer,
                                    max_prompt_len=70,
-                                   preprocess=preprocess,
-                                   tokenizer=tokenizer,
-                                   **config_prompt.prompt_config)
+                                   transform=preprocess)
 
     return training_dataset, test_dataset
 
@@ -54,14 +52,13 @@ def compute_metrics(eval_pred):
     return metric.compute(predictions=predictions, references=labels)
 
 
-def collator(data):
+def collator(batch):
     """ Stucture data for tranining
     """
     #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    return  {"pixel_values": torch.stack([x["images"] for x in batch]) 
+    return  {"pixel_values": torch.cat([x["pixel_values"]["pixel_values"] for x in batch]), 
              "labels": torch.stack([x["labels"] for x in batch]) 
-              }
+            }
 
 
 def main(config, device, tags, dir_project):
@@ -79,6 +76,7 @@ def main(config, device, tags, dir_project):
                                                   config_prompt=config
                                                   )
 
+    #pdb.set_trace()
     # Create model
     model = ViTForImageClassification.from_pretrained(model_name, num_labels=2)
 
@@ -107,9 +105,9 @@ def main(config, device, tags, dir_project):
                 args=training_args,
                 train_dataset=training_dataset,
                 eval_dataset=test_dataset,
-                tokenizer=tokenizer,
+                tokenizer=feature_extractor,
                 compute_metrics=compute_metrics,
-                data_collator=data_collator).train()
+                data_collator=collator).train()
 
         trainer.save_model()
     

@@ -64,17 +64,18 @@ class NAIPImagery(Dataset):
             self.tabular_data = pd.read_csv(self.tabular_data)
 
         # Transform tabular data into prompts
-        self.dict_prompts = prompting(
-            df=self.tabular_data,
-            prompt_type=self.prompt_type,
-            template=self.template,
-            id_var=self.id_var,
-            label_column=self.label_column,
-            column_name_map=self.column_name_map,
-            cols_template=self.cols_template,
-            final_prompt=self.final_prompt,
-            columns_of_interest=self.columns_of_interest,
-        )
+        if self.tokenizer is not None:
+            self.dict_prompts = prompting(
+                df=self.tabular_data,
+                prompt_type=self.prompt_type,
+                template=self.template,
+                id_var=self.id_var,
+                label_column=self.label_column,
+                column_name_map=self.column_name_map,
+                cols_template=self.cols_template,
+                final_prompt=self.final_prompt,
+                columns_of_interest=self.columns_of_interest,
+            )
 
     def __len__(self):
         return len(self.paths)
@@ -84,7 +85,6 @@ class NAIPImagery(Dataset):
 
         # Get image id and get text prompt
         id_img = int(path_img.stem.split("_")[0])
-        text_img = self.dict_prompts[id_img]
 
         # Get image label
         label_img = int(path_img.stem.split("_")[-1])
@@ -100,19 +100,20 @@ class NAIPImagery(Dataset):
             img = self.transform(img, return_tensors="pt")
 
         # Tokenize the text
-        if tokenizer is not None:
+        if self.tokenizer is not None:
+            text_img = self.dict_prompts[id_img]
             embeddings_dict = self.tokenizer(text=text_img,
                                              truncation=True,
                                              padding="max_length",
                                              max_length=self.max_prompt_len)
 
-            out = {"img": img, 
+            out = {"pixel_values": img, 
                    "labels": label_img,
                    "input_ids": embeddings_dict["input_ids"],
                    "attention_mask": embeddings_dict["attention_mask"]
                    }
         else:
-            out = {"images": img,
+            out = {"pixel_values": img,
                    "labels": label_img
                    }
 
