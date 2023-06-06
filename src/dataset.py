@@ -86,12 +86,6 @@ class NAIPImagery(Dataset):
         id_img = int(path_img.stem.split("_")[0])
         text_img = self.dict_prompts[id_img]
 
-        # Tokenize the text
-        embeddings_dict = self.tokenizer(text=text_img,
-                                         truncation=True,
-                                         padding="max_length",
-                                         max_length=self.max_prompt_len)
-
         # Get image label
         label_img = int(path_img.stem.split("_")[-1])
         label_img = torch.as_tensor(np.array(label_img))
@@ -103,14 +97,24 @@ class NAIPImagery(Dataset):
         img = ToTensor()(img)
 
         if self.transform:
-            img = self.transform(img)
+            img = self.transform(img, return_tensors="pt")
 
-        out = {"img": img, 
-               "labels": label_img,
-               #"text": text_img,
-               "input_ids": embeddings_dict["input_ids"],
-               "attention_mask": embeddings_dict["attention_mask"]
-               }
+        # Tokenize the text
+        if tokenizer is not None:
+            embeddings_dict = self.tokenizer(text=text_img,
+                                             truncation=True,
+                                             padding="max_length",
+                                             max_length=self.max_prompt_len)
+
+            out = {"img": img, 
+                   "labels": label_img,
+                   "input_ids": embeddings_dict["input_ids"],
+                   "attention_mask": embeddings_dict["attention_mask"]
+                   }
+        else:
+            out = {"images": img,
+                   "labels": label_img
+                   }
 
         return out 
 
