@@ -13,8 +13,9 @@ def prompting(
     id_var,
     final_prompt,
     label_column,
-    special_tokens=("<|startoftext|>", "<|endoftext|>", "<|pad|>"),
+    special_tokens=("<startoftext>", "<endoftext>", "<pad>"),
     round_dec=3,
+    add_response=True,
     template=None,
     cols_template=None,
 ):
@@ -46,6 +47,8 @@ def prompting(
         - round_dec int: Rounding decimals to this level
         - cols_template list: List with the columns in the order of the
           template placeholders.
+        - add_response: Should the prompt include the response? This is useful
+          to do datasets for predition vs. training.
 
     Returns:
         Dict of strings
@@ -91,7 +94,11 @@ def prompting(
                     row_string.append(s)
 
             row_str = "\n".join(row_string)
-            row_str = f"{start} {row_str}\n {final_prompt} {row[label_column]}{end}"
+            if add_response:
+                row_str = f"{start}{row_str}\n {final_prompt} {row[label_column]}{end}"
+            else:
+                row_str = f"{start}{row_str}\n {final_prompt}{end}"
+
             dict_rows[row[id_var]] = row_str
 
     elif prompt_type == "template":
@@ -99,8 +106,13 @@ def prompting(
         for idx, row in tqdm(df_filtered.iterrows(), total=df_filtered.shape[0],
                              desc=f"Transforming tabular to {prompt_type} text prompts"):
             row_subset = row[cols_template]
+            template = template.rstrip()
             s = template.format(*row_subset)
-            s = f"{start} {s} {final_prompt} {row[label_column]}{end}"
+            if add_response:
+                s = f"{start}{s} {final_prompt}{row[label_column]}{end}"
+            else:
+                s = f"{start}{s} {final_prompt}{end}"
+
             dict_rows[row[id_var]] = s
 
     return dict_rows

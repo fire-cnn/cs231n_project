@@ -4,283 +4,158 @@
 import argparse
 import torch
 import wandb
+import evaluate
+from transformers import (set_seed,
+                          TrainingArguments,
+                          Trainer,
+                          GPT2Config,
+                          GPT2Tokenizer,
+                          AdamW, 
+                          get_linear_schedule_with_warmup,
+                          GPT2ForSequenceClassification,
+                          GPT2LMHeadModel,
+                          AutoTokenizer,
+                          DataCollatorWithPadding,
+                          AutoModelForSequenceClassification
+                          )
+import pandas as pd
 import numpy as np
-
 from pathlib import Path
-from torch import nn
-from torch.utils.data import DataLoader
-from torchvision.io import read_image
-from torchvision import transforms
-from torch.optim import lr_scheduler
-from torch.utils.data import random_split
-from torchvision import datasets, models, transforms
-from tqdm import tqdm
 
+from src.config import Config
 from src.dataset import NAIPImagery
-from src.utils_training import save_batch_images
-from src.sampler import BalancedBatchSampler
+from src.trainer import CustomTrainer
+from src.prompts import prompting
 
-
-def make(config):
-    # Split train/test
-    train_len = int(len(full_dataset) * config.train_test_split)
-    train_set, test_set = random_split(
-        full_dataset, [train_len, len(full_dataset) - train_len]
-    )
-
-    # Create DataLoaders for train and test datasets
-    train_loader = DataLoader(
-        train_set,
-        batch_size=config.batch_size_test,
-        sampler=BalancedBatchSampler(train_set),
-        num_workers=config.num_workers,
-    )
-
-    test_loader = DataLoader(
-        test_set,
-        batch_size=config.batch_size_train,
-        sampler=BalancedBatchSampler(test_set),
-        num_workers=config.num_workers,
-    )
-
-    # Make the model
-    model = models.resnet50(weights="IMAGENET1K_V2")
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, 2)
-
-    model = model.to(device)
-
-    # Make the loss and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
-    )
-
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
-
-    return model, train_loader, test_loader, criterion, scheduler, optimizer
-
-
-def fine_tuning_parameters(model, strategy="full"):
-    """Select fine tuning strategy for pre-trained model
-
-    This function will take a pre-trained model (either PyTorch or HH) and will
-    select the parameters for fine-tuning. We implemented several types of FT,
-    being "full" the default strategy. The options are:
-        - full: all parameters are fine tuned
-        - 'lp': linear probbing (only linear layers are updated)
-        - 'last': only last layer is updated
-        - 'first': only first layer is updated
-        - 'middle': middle of the parameter block is updated only
-
-
-    Args:
-        - model: A PyTorch model object
-        - strategy str: a strategy for FT
-
-    Returns:
-        A dict of parameters to pass to optimizer
+def load_dataset(tokenizer, 
+                 path_to_train, 
+                 path_to_test, 
+                 tabular_data_path,
+                 config_prompt,
+                 preprocess=None):
+    """ Load data from test and train!
     """
 
-    len_blocks = len(model.transformer.h)
+    #id_var = config_prompt.prompt_config["id_var"]
+    #paths_test = list(Path(path_to_test).rglob("*.png"))
+    #ids = [int(p.stem.split("_")[0]) for p in paths_test]
+    #y_test = [int(p.stem.split("_")[-1]) for p in paths_test]
+   
 
-    if mode == "full":
-        return [x for x in model.parameters()]
-    elif mode == "last":
-        return [x for x in model.transformer.h[-2:].parameters()]
-    elif mode == "first":
-        return [x for x in model.transformer.h[:2].parameters()]
-    elif mode == "middle":
-        mid = (len_blocks + 1) // 2
-        mid_params = [model.transformer.h[i] for i in [mid, mid + 1]]
-        return [x for i in mid_params for x in i.parameters()]
-    elif mode.startswith("lora"):
-        params = [x for x in model.modules() if isinstance(x, LoRAConv1DWrapper)]
+    #tabular_data = pd.read_csv(tabular_data_path)
+    #test_data_tabular = tabular_data[tabular_data[id_var].isin(ids)]
+    #x_test = prompting(df=test_data_tabular,
+    #                   add_response=False,
+    #                   **config_prompt.prompt_config)
 
-        params_lora = [
-            x
-            for i in params
-            for k, x in i.named_parameters()
-            if "lora_A" in k or "lora_B" in k
-        ]
-        return params_lora
-    else:
-        raise NotImplementedError()
+    # Evaluation dataset
+    test_dataset = NAIPImagery(images_dir=path_to_test,
+                                   transform=preprocess,
+                                   tabular_data=tabular_data_path,
+                                   tokenizer=tokenizer,
+                                   max_prompt_len=70,
+                                   **config_prompt.prompt_config)
 
 
-def train_batch(text, labels, model, optimizer):
-    # Optimize me!
-    with torch.set_grad_enabled(True):
-        text, labels = text.to(device), labels.to(device)
+    # Training dataset
+    training_dataset = NAIPImagery(images_dir=path_to_train,
+                                   transform=preprocess,
+                                   tabular_data=tabular_data_path,
+                                   tokenizer=tokenizer,
+                                   max_prompt_len=70,
+                                   **config_prompt.prompt_config)
 
-        optimizer.zero_grad()
+    return training_dataset, test_dataset
 
-        # Forward pass ➡
-        outputs = model(text, labels=labels)
-        loss, logits = outputs[:2]
+
+def compute_metrics(eval_pred):
+    # Setup evaluation
+    metric = evaluate.load("accuracy")
+    logits, labels = eval_pred
+    predictions = np.argmax(logits, axis=-1)
+    return metric.compute(predictions=predictions, references=labels)
+
+def collator(data):
+    """ Stucture data for tranining
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    d_data = {"input_ids": torch.Tensor([f[1] for f in data]).type(torch.LongTensor),
+              "attention_mask": torch.Tensor([f[2] for f in data]).type(torch.LongTensor),
+              "labels": torch.Tensor([f[1] for f in data]).type(torch.LongTensor)
+              }
+
+    d_data_device = {
+            "input_ids": d_data["input_ids"].to(device),
+            "attention_mask": d_data["attention_mask"].to(device),
+            "labels": d_data["labels"].to(device)
+            }
+
+    return d_data_device
+
+def main(config, device):
+
+    config_train = config.train_config
+    model_name = config_train["model_name"]
     
-        # Backward pass ⬅
-        loss.backward()
+    # Instantiate model and tokenizer
+    torch.manual_seed(42)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, 
+                                          bos_token="<start_of_text>",
+                                          eos_token="<end_of_text>")
+    tokenizer.padding_side = "left"
+    
+    # Define PAD Token = EOS Token = 50256
+    tokenizer.pad_token = tokenizer.eos_token
+    
+    # Set up collator
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer) 
 
-        # Step with optimizer
-        optimizer.step()
-
-        # Clip the norm of the gradients to 1.0.
-        # This is to help prevent the "exploding gradients" problem.
-        nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-
-    return loss, logits
-
-
-def train_model(
-    model, train_loader, test_loader, criterion, scheduler, optimizer, config
-):
-    wandb.watch(model)
-
-    # Run training and track with wandb
-    total_batches = len(train_loader) * config.epochs
-    example_ct = 0  # number of examples seen
-    batch_ct = 0
-    for epoch in tqdm(range(config.epochs)):
-        # Training step
-        train_loss = []
-        correct, total = 0, 0
-        for _, (images, text, labels) in enumerate(train_loader):
-            loss, logits = train_batch(text, labels, model, optimizer)
-            example_ct += len(text)
-            batch_ct += 1
-
-            # Report metrics every 25th batch
-            if ((batch_ct + 1) % 25) == 0:
-                train_log(loss, example_ct, epoch)
-            
-            # Update the learning rate.
-            scheduler.step()
-
-            # Move logits and labels to CPU
-            logits = logits.detach().cpu().numpy()
-
-            # Convert these logits to list of predicted labels values.
-            predictions_labels += logits.argmax(axis=-1).flatten().tolist()
-
-            # Log accuracy and loss batch
-            total += labels.size(0)
-            correct += (predicted.cpu() == labels.cpu()).sum().item()
-
-            train_loss.append(loss.item())
-
-        # Report epoch total loss and log into WB
-        print(f"Epoch [{epoch}] training loss: {sum(train_loss)/len(train_loss)}")
-        wandb.log({"train-loss": sum(train_loss) / len(train_loss)})
-        wandb.log({"train-acc": correct / total})
-
-        # Validation step
-        model.eval()
-        with torch.no_grad():
-            validation_loss = []
-            correct, total = 0, 0
-            for idx, (images, text, labels) in enumerate(test_loader):
-                images, text, labels = images.to(device), text.to(device), labels.to(device)
-                outputs = model(text, labels)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-
-                # Validation loss
-                loss = criterion(outputs, labels)
-                validation_loss.append(loss)
-
-                print(f"Validation Loss batch: {loss}")
-                if loss > 2:
-                    save_batch_images(images.cpu(), f"batch_{idx}", f"Loss: {loss}")
-
-            print(
-                f"Accuracy of the model on the {total} "
-                + f"test images: {correct / total:%}"
-            )
-
-            wandb.log({"test-loss": sum(validation_loss) / len(validation_loss)})
-            wandb.log({"test-accuracy": correct / total})
-            scheduler.step()
+    # Set up classifier
+    model = AutoModelForSequenceClassification.from_pretrained(model_name,
+                                                               num_labels=2)
+    # fix model padding token id
+    model.config.pad_token_id = model.config.eos_token_id
 
 
-def train_log(loss, example_ct, epoch):
-    # Where the magic happens
-    wandb.log({"epoch": epoch, "loss": loss}, step=example_ct)
-    print(f"Loss after {str(example_ct).zfill(5)} examples: {loss:.3f}")
+    #model = GPT2LMHeadModel.from_pretrained(model_name).cuda()
+    #model.resize_token_embeddings(len(tokenizer))
 
+    # Load data
+    training_dataset, test_dataset = load_dataset(tokenizer,
+                                                  path_to_train=config_train["path_to_train"],
+                                                  path_to_test=config_train["path_to_test"],
+                                                  tabular_data_path=config_train["tabular_data_path"],
+                                                  config_prompt=config
+                                                  )
 
-def model_pipeline(hyperparameters, tags):
-    # tell wandb to get started
-    with wandb.init(
-        project="cnn_wildfire_households",
-        mode="online",
-        tags=tags,
-        config=hyperparameters,
-    ):
-        # access all HPs through wandb.config, so logging matches execution!
-        config = wandb.config
+    # Start trainer
+    training_args = TrainingArguments(output_dir="results",
+                                      num_train_epochs=config_train["epochs"],
+                                      load_best_model_at_end=True,
+                                      save_strategy="epoch",
+                                      evaluation_strategy="epoch",
+                                      #dataloader_pin_memory=False,
+                                      per_device_train_batch_size=config_train["batch_size_train"],
+                                      per_device_eval_batch_size=config_train["batch_size_test"],
+                                      #warmup_steps=config_train["warmup_steps"],
+                                      weight_decay=config_train["weight_decay"],
+                                      logging_dir="logs",
+                                      report_to="wandb"
+                                      )
 
-        # make the model, data, and optimization problem
-        model, train_loader, test_loader, criterion, scheduler, optimizer = make(config)
-
-        # and use them to train the model
-        train_model(
-            model, train_loader, test_loader, criterion, scheduler, optimizer, config
-        )
-
-    return model
-
+    Trainer(model=model, 
+                  args=training_args,
+                  train_dataset=training_dataset,
+                  eval_dataset=test_dataset,
+                  tokenizer=tokenizer,
+                  compute_metrics=compute_metrics,
+                  data_collator=data_collator).train()
+    
+    return None
 
 if __name__ == "__main__":
-    # Arguments for argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--datafolder", type=str, help="Images/Labels folder")
-    parser.add_argument("--subset_share", type=int, help="Divide dataset in x share")
-    parser.add_argument("--tags", type=str, help="Enter tags for W&B")
 
-    # Instantiate arguments
-    args = parser.parse_args()
-    datafolder = args.datafolder
-    share = args.subset_share
-    tags = [str(item) for item in args.tags.split(",")]
-
-    ############################# CUDA CONFIGURATION ##############################
-    device = "cpu"
-    if torch.cuda.device_count() > 0 and torch.cuda.is_available():
-        print("Cuda installed! Running on GPU!")
-        device = "cuda"
-    else:
-        print("No GPU available!")
-    ###############################################################################
-
-    # Define pre-processing
-    preprocess = transforms.Compose(
-        [
-            transforms.Resize((224), antialias=True),
-            transforms.CenterCrop(224),
-            transforms.RandomHorizontalFlip(),
-        ]
-    )
-
-    # Open and subset dataset
-    full_dataset = NAIPImagery(images_dir="test_data/", transform=preprocess)
-    sub_dataset = torch.utils.data.Subset(
-        full_dataset, indices=range(0, len(full_dataset), share)
-    )
-
-    # Start W&B
-    config = dict(
-        epochs=30,
-        batch_size_train=20,
-        batch_size_test=20,
-        learning_rate=0.001,
-        weight_decay=0,
-        train_test_split=0.8,
-        num_workers=5,
-        dataset=sub_dataset,
-        architecture="ResNET",
-    )
-
-    # Run the model!
-    model = model_pipeline(config, tags=tags)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    config =  Config("config_prompts.yaml")
+    main(config, device)

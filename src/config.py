@@ -20,20 +20,10 @@ class Config:
         prompt_config = self.config_dict["prompts"]
 
         return prompt_config
-
+    
     @property
-    def template(self):
-        return self.prompt_config["template"]
+    def train_config(self):
+        train_config = self.config_dict["train"]
 
-    @property
-    def cols_template(self):
-        return self.prompt_config["cols_template"]
-
-    @property
-    def dict_column_names(self):
-        return self.prompt_config["dict_column_names"]
-
-    @property
-    def columns_of_interest(self):
-        return self.prompt_config["columns_of_interest"]
+        return train_config
 

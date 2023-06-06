@@ -12,12 +12,12 @@ except:
     is_torchvision_installed = False
 import torch.utils.data
 import random
-
+from tqdm import tqdm 
 
 class BalancedBatchSampler(torch.utils.data.sampler.Sampler):
     def __init__(self, dataset, labels=None):
         if isinstance(dataset, torch.utils.data.dataset.Subset):
-            labels = [labs for img, txt, labs in dataset]
+            labels = [inputs["labels"] for inputs in dataset]
             self.labels = torch.tensor(labels)
         else:
             self.labels = labels
@@ -37,7 +37,7 @@ class BalancedBatchSampler(torch.utils.data.sampler.Sampler):
             )
 
         # Oversample the classes with fewer elements than the max
-        for label in self.dataset:
+        for label in tqdm(self.dataset, desc=""):
             while len(self.dataset[label]) < self.balanced_max:
                 self.dataset[label].append(random.choice(self.dataset[label]))
         self.keys = list(self.dataset.keys())

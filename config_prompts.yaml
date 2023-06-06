@@ -1,4 +1,16 @@
 # Configuration file for prompting
+
+train:
+  model_name: "gpt2"
+  path_to_train: "data/train"
+  path_to_test: "data/test"
+  tabular_data_path: "/mnt/sherlock/oak/mburke/cnn_fire_fuel/cleaned_homes/augmented_dataset.csv"
+  epochs: 10
+  batch_size_train: 16
+  batch_size_test: 16
+  warmup_steps: 100
+  weight_decay: 0.01
+
 prompts:
   label_column: destroyed
   id_var: homeid
@@ -24,7 +36,7 @@ prompts:
     - homeid
     - destroyed
 
-  dict_column_names:
+  column_name_map:
     yearbuilt: Year Built,
     elev: Elevation,
     slope_r25: Slope,
@@ -48,7 +60,6 @@ prompts:
     slope of {}. Temperature is {} degrees. Relative humidity is {}.  Wind
     speed is {}. The vapor pressure deficit is {} and the fuel moisture was {}.
     The risk to structure is {}. The fire name is {}
-  
   cols_template:
     - age
     - elev
@@ -59,6 +70,7 @@ prompts:
     - mean_vapor_pressure_deficit 
     - dead_fuel_moisture_100hr
     - riskToStru
-    - firename 
+    - firename
 
-  final_prompt: "Is this house going to be destroyed? Yes or no? Answer:"
+  final_prompt: ""
+  #final_prompt: "Is this house going to be destroyed? Yes or no? Answer:"
