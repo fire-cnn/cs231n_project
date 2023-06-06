@@ -93,7 +93,7 @@ def collator(data):
 
     return d_data_device
 
-def main(config, device, tags):
+def main(config, device, tags, dir_project):
 
     config_train = config.train_config
     model_name = config_train["model_name"]
@@ -147,6 +147,8 @@ def main(config, device, tags):
         project="cnn_wildfire_households",
         mode="online",
         tags=tags,
+        dir=dir_project,
+        mode="online",
         group="gpt"):
 
         Trainer(model=model, 
@@ -162,11 +164,13 @@ def main(config, device, tags):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", type=str, help="Path to YAML config file")
+    parser.add_argument("--dir_project", type=str, default="./wandb", help="Path for W&B saved data")
     parser.add_argument("--tags", type=str, help="Tags for W&B")
 
     # Init args
     args = parser.parse_args()
     path_to_config = args.config_file
+    path_to_dir = args.dir_project
     tags = [str(item) for item in args.tags.split(",")]
 
     
