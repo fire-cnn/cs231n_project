@@ -183,4 +183,4 @@ if __name__ == "__main__":
     ###############################################################################
 
     config =  Config(path_to_config)
-    main(config, device, tags)
+    main(config, device, tags, path_to_dir)
