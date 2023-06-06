@@ -93,7 +93,7 @@ def collator(data):
 
     return d_data_device
 
-def main(config, device):
+def main(config, device, tags):
 
     config_train = config.train_config
     model_name = config_train["model_name"]
@@ -143,19 +143,41 @@ def main(config, device):
                                       logging_dir="logs",
                                       report_to="wandb"
                                       )
+    with wandb.init(
+        project="cnn_wildfire_households",
+        mode="online",
+        tags=tags,
+        group="gpt"):
 
-    Trainer(model=model, 
-                  args=training_args,
-                  train_dataset=training_dataset,
-                  eval_dataset=test_dataset,
-                  tokenizer=tokenizer,
-                  compute_metrics=compute_metrics,
-                  data_collator=data_collator).train()
+        Trainer(model=model, 
+                args=training_args,
+                train_dataset=training_dataset,
+                eval_dataset=test_dataset,
+                tokenizer=tokenizer,
+                compute_metrics=compute_metrics,
+                data_collator=data_collator).train()
     
     return None
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config_file", type=str, help="Path to YAML config file")
+    parser.add_argument("--tags", type=str, help="Tags for W&B")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    config =  Config("config_prompts.yaml")
-    main(config, device)
+    # Init args
+    args = parser.parse_args()
+    path_to_config = args.config_file
+    tags = [str(item) for item in args.tags.split(",")]
+
+    
+    ############################# CUDA CONFIGURATION ##############################
+    device = "cpu"
+    if torch.cuda.device_count() > 0 and torch.cuda.is_available():
+        print("Cuda installed! Running on GPU!")
+        device = "cuda"
+    else:
+        print("No GPU available!")
+    ###############################################################################
+
+    config =  Config(path_to_config)
+    main(config, device, tags)
