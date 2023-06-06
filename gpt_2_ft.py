@@ -148,7 +148,6 @@ def main(config, device, tags, dir_project):
         mode="online",
         tags=tags,
         dir=dir_project,
-        mode="online",
         group="gpt"):
 
         Trainer(model=model, 
