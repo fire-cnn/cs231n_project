@@ -91,7 +91,9 @@ def main(config, device, tags, dir_project):
                                       evaluation_strategy="epoch",
                                       per_device_train_batch_size=config_train["batch_size_train"],
                                       per_device_eval_batch_size=config_train["batch_size_test"],
-                                      #weight_decay=config_train["weight_decay"],
+                                      warmup_steps=config_train["warmup_steps"],
+                                      learning_rate=float(config_test["learning_rate"]),
+                                      weight_decay=config_train["weight_decay"],
                                       logging_dir="logs",
                                       report_to="wandb"
                                       )

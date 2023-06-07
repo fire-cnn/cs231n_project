@@ -1,0 +1,16 @@
+# Configuration file for prompting
+
+train:
+  model_name: "google/vit-base-patch16-224-in21k"
+  path_to_train: "data/train"
+  path_to_test: "data/test"
+  tabular_data_path: "/mnt/sherlock/oak/mburke/cnn_fire_fuel/cleaned_homes/augmented_dataset.csv"
+  epochs: 10
+  output_dir: "results"
+  resume_from_checkpoint: False
+  batch_size_train: 16
+  batch_size_test: 16
+  warmup_steps: 500
+  learning_rate: 5e-5
+  weight_decay: 0.01
+
