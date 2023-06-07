@@ -29,6 +29,7 @@ class NAIPImagery(Dataset):
         cols_template=None,
         columns_of_interest=None,
         id_var=None,
+        add_response=None,
         label_column=None
     ) -> None:
         """
@@ -48,6 +49,7 @@ class NAIPImagery(Dataset):
         self.column_name_map = column_name_map
         self.final_prompt = final_prompt
         self.label_column = label_column
+        self.add_response = add_response
         self.transform = transform
         self.tokenizer = tokenizer
 
@@ -74,6 +76,7 @@ class NAIPImagery(Dataset):
                 column_name_map=self.column_name_map,
                 cols_template=self.cols_template,
                 final_prompt=self.final_prompt,
+                add_response=self.add_response,
                 columns_of_interest=self.columns_of_interest,
             )
 

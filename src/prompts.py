@@ -65,6 +65,9 @@ def prompting(
     # Subset and round dataframe
     df_filtered = df.filter(columns_of_interest)
 
+    # Hacky, but change labels so they can be informative for our purposes
+    df_filtered = df_filtered.replace({label_column: {"Yes": "burned", "No": "unburned"}})
+
     for col_name in df_filtered:
         if df_filtered[col_name].dtype == np.float32:
             df_filtered[col_name] = df_filtered[col_name].astype(float)
@@ -109,9 +112,10 @@ def prompting(
             template = template.rstrip()
             s = template.format(*row_subset)
             if add_response:
-                s = f"{start}{s} {final_prompt}{row[label_column]}{end}"
+                s = f"{start}{s}. {final_prompt} {row[label_column]}{end}"
             else:
-                s = f"{start}{s} {final_prompt}{end}"
+                # This is a hack, the prompt needs and starting space character to fit.
+                s = f"{start}{s}{end}"
 
             dict_rows[row[id_var]] = s
 

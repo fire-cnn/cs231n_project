@@ -6,17 +6,17 @@ train:
   path_to_test: "data/test"
   tabular_data_path: "/mnt/sherlock/oak/mburke/cnn_fire_fuel/cleaned_homes/augmented_dataset.csv"
   epochs: 10
-  output_dir: "results",
+  output_dir: "results_dual_enc"
   resume_from_checkpoint: False
   batch_size_train: 16
   batch_size_test: 16
-  warmup_steps: 100
   weight_decay: 0.01
 
 prompts:
   label_column: destroyed
   id_var: homeid
   prompt_type: template
+  add_response: True
   columns_of_interest:
     - yearbuilt 
     - aspect
@@ -74,5 +74,6 @@ prompts:
     - riskToStru
     - firename
 
-  final_prompt: ""
+  #final_prompt: ""
   #final_prompt: "Is this house going to be destroyed? Yes or no? Answer:"
+  final_prompt: "This house is"  
