@@ -86,7 +86,7 @@ def main(config, device, tags, dir_project):
                                       resume_from_checkpoint=config_train["resume_from_checkpoint"],
                                       load_best_model_at_end=True,
                                       save_strategy="epoch",
-                                      learning_rate=2e-4,
+                                      learning_rate=0.5,
                                       evaluation_strategy="epoch",
                                       per_device_train_batch_size=config_train["batch_size_train"],
                                       per_device_eval_batch_size=config_train["batch_size_test"],
