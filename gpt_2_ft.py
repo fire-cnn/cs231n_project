@@ -1,6 +1,7 @@
 """ GPT-2 fine-tuning
 """
 
+import pdb
 import argparse
 import torch
 import wandb
@@ -33,18 +34,6 @@ def load_dataset(tokenizer,
     """ Load data from test and train!
     """
 
-    #id_var = config_prompt.prompt_config["id_var"]
-    #paths_test = list(Path(path_to_test).rglob("*.png"))
-    #ids = [int(p.stem.split("_")[0]) for p in paths_test]
-    #y_test = [int(p.stem.split("_")[-1]) for p in paths_test]
-   
-
-    #tabular_data = pd.read_csv(tabular_data_path)
-    #test_data_tabular = tabular_data[tabular_data[id_var].isin(ids)]
-    #x_test = prompting(df=test_data_tabular,
-    #                   add_response=False,
-    #                   **config_prompt.prompt_config)
-
     # Evaluation dataset
     test_dataset = NAIPImagery(images_dir=path_to_test,
                                    transform=preprocess,
@@ -72,23 +61,6 @@ def compute_metrics(eval_pred):
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
 
-def collator(data):
-    """ Stucture data for tranining
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    d_data = {"input_ids": torch.Tensor([f[1] for f in data]).type(torch.LongTensor),
-              "attention_mask": torch.Tensor([f[2] for f in data]).type(torch.LongTensor),
-              "labels": torch.Tensor([f[1] for f in data]).type(torch.LongTensor)
-              }
-
-    d_data_device = {
-            "input_ids": d_data["input_ids"].to(device),
-            "attention_mask": d_data["attention_mask"].to(device),
-            "labels": d_data["labels"].to(device)
-            }
-
-    return d_data_device
 
 def main(config, device, tags, dir_project):
 
@@ -113,10 +85,6 @@ def main(config, device, tags, dir_project):
                                                                num_labels=2)
     # fix model padding token id
     model.config.pad_token_id = model.config.eos_token_id
-
-
-    #model = GPT2LMHeadModel.from_pretrained(model_name).cuda()
-    #model.resize_token_embeddings(len(tokenizer))
 
     # Load data
     training_dataset, test_dataset = load_dataset(tokenizer,

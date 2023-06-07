@@ -16,7 +16,7 @@ prompts:
   label_column: destroyed
   id_var: homeid
   prompt_type: template
-  add_response: True
+  add_response: False
   columns_of_interest:
     - yearbuilt 
     - aspect
