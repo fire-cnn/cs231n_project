@@ -104,6 +104,7 @@ def main(config, device, tags, dir_project):
                                       per_device_train_batch_size=config_train["batch_size_train"],
                                       per_device_eval_batch_size=config_train["batch_size_test"],
                                       weight_decay=config_train["weight_decay"],
+                                      warmup_steps=config_train["warmup_steps"],
                                       logging_dir="logs",
                                       report_to="wandb"
                                       )
