@@ -6,7 +6,7 @@ import argparse
 import torch
 import wandb
 import evaluate
-from transformers import (ViTForImageClassification, 
+from transformers import (ViTForImageClassification,
                           ViTFeatureExtractor,
                           TrainingArguments,
                           Trainer)
@@ -16,8 +16,8 @@ import numpy as np
 from src.config import Config
 from src.dataset import NAIPImagery
 
-def load_dataset(path_to_train, 
-                 path_to_test, 
+def load_dataset(path_to_train,
+                 path_to_test,
                  tabular_data_path,
                  config_prompt,
                  tokenizer=None,
@@ -56,8 +56,8 @@ def collator(batch):
     """ Stucture data for tranining
     """
     #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    return  {"pixel_values": torch.cat([x["pixel_values"]["pixel_values"] for x in batch]), 
-             "labels": torch.stack([x["labels"] for x in batch]) 
+    return  {"pixel_values": torch.cat([x["pixel_values"]["pixel_values"] for x in batch]),
+             "labels": torch.stack([x["labels"] for x in batch])
             }
 
 
@@ -65,7 +65,7 @@ def main(config, device, tags, dir_project):
 
     config_train = config.train_config
     model_name = config_train["model_name"]
-    
+
     feature_extractor = ViTFeatureExtractor.from_pretrained(model_name)
 
     # Load data
@@ -86,11 +86,12 @@ def main(config, device, tags, dir_project):
                                       resume_from_checkpoint=config_train["resume_from_checkpoint"],
                                       load_best_model_at_end=True,
                                       save_strategy="epoch",
-                                      learning_rate=0.5,
+                                      learning_rate=0.1,
+                                      remove_unused_columns=False,
                                       evaluation_strategy="epoch",
                                       per_device_train_batch_size=config_train["batch_size_train"],
                                       per_device_eval_batch_size=config_train["batch_size_test"],
-                                      weight_decay=config_train["weight_decay"],
+                                      #weight_decay=config_train["weight_decay"],
                                       logging_dir="logs",
                                       report_to="wandb"
                                       )
@@ -101,7 +102,7 @@ def main(config, device, tags, dir_project):
         dir=dir_project,
         group="vit"):
 
-        trainer = Trainer(model=model, 
+        trainer = Trainer(model=model,
                 args=training_args,
                 train_dataset=training_dataset,
                 eval_dataset=test_dataset,
@@ -109,8 +110,7 @@ def main(config, device, tags, dir_project):
                 compute_metrics=compute_metrics,
                 data_collator=collator).train()
 
-        trainer.save_model()
-    
+
     return None
 
 if __name__ == "__main__":
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     path_to_dir = args.dir_project
     tags = [str(item) for item in args.tags.split(",")]
 
-    
+
     ############################# CUDA CONFIGURATION ##############################
     device = "cpu"
     if torch.cuda.device_count() > 0 and torch.cuda.is_available():
