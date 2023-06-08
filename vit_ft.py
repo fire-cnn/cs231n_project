@@ -8,6 +8,7 @@ import wandb
 import evaluate
 from transformers import (ViTForImageClassification,
                           ViTFeatureExtractor,
+                          ViTImageProcessor,
                           TrainingArguments,
                           Trainer)
 
@@ -32,7 +33,6 @@ def load_dataset(path_to_train,
                                tabular_data=tabular_data_path,
                                max_prompt_len=70,
                                tokenizer=tokenizer)
-
 
     # Training dataset
     training_dataset = NAIPImagery(images_dir=path_to_train,
@@ -66,10 +66,11 @@ def main(config, device, tags, dir_project):
     config_train = config.train_config
     model_name = config_train["model_name"]
 
-    feature_extractor = ViTFeatureExtractor.from_pretrained(model_name)
+    #feature_extractor = ViTFeatureExtractor.from_pretrained(model_name)
+    image_processor = ViTImageProcessor.from_pretrained(model_name)
 
     # Load data
-    training_dataset, test_dataset = load_dataset(preprocess=feature_extractor,
+    training_dataset, test_dataset = load_dataset(preprocess=image_processor,
                                                   path_to_train=config_train["path_to_train"],
                                                   path_to_test=config_train["path_to_test"],
                                                   tabular_data_path=config_train["tabular_data_path"],
@@ -107,7 +108,7 @@ def main(config, device, tags, dir_project):
                 args=training_args,
                 train_dataset=training_dataset,
                 eval_dataset=test_dataset,
-                tokenizer=feature_extractor,
+                tokenizer=image_processor,
                 compute_metrics=compute_metrics,
                 data_collator=collator).train()
 
