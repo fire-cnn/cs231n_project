@@ -59,8 +59,8 @@ def compute_metrics(eval_pred):
     f1 = load("f1")
     # compute the accuracy and f1 scores & return them
     accuracy_score = accuracy.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids)
-    f1_score = f1.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids, average="macro")
-    
+    f1_score = f1.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids, average="weighted")
+
     return {**accuracy_score, **f1_score}
 
 
@@ -91,7 +91,7 @@ def main(config, device, tags, dir_project):
 
     #pdb.set_trace()
     # Create model
-    model = ViTForImageClassification.from_pretrained(model_name, num_labels=2, 
+    model = ViTForImageClassification.from_pretrained(model_name, num_labels=2,
                                                       hidden_dropout_prob=0.2,
                                                       ignore_mismatched_sizes=True)
 
