@@ -79,7 +79,9 @@ def main(config, device, tags, dir_project):
 
     #pdb.set_trace()
     # Create model
-    model = ViTForImageClassification.from_pretrained(model_name, num_labels=2, ignore_mismatched_sizes=True)
+    model = ViTForImageClassification.from_pretrained(model_name, num_labels=2, 
+                                                      hidden_dropout_prob=0.2,
+                                                      ignore_mismatched_sizes=True)
 
     # Start trainer
     training_args = TrainingArguments(output_dir=config_train["output_dir"],
