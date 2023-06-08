@@ -5,7 +5,7 @@ import pdb
 import argparse
 import torch
 import wandb
-import evaluate
+from evaluate import load
 from transformers import (set_seed,
                           TrainingArguments,
                           Trainer,
@@ -55,11 +55,13 @@ def load_dataset(tokenizer,
 
 
 def compute_metrics(eval_pred):
-    # Setup evaluation
-    metric = evaluate.load("accuracy")
-    logits, labels = eval_pred
-    predictions = np.argmax(logits, axis=-1)
-    return metric.compute(predictions=predictions, references=labels)
+    accuracy = load("accuracy")
+    f1 = load("f1")
+    # compute the accuracy and f1 scores & return them
+    accuracy_score = accuracy.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids)
+    f1_score = f1.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids, average="weighted")
+    
+    return {**accuracy_score, **f1_score}
 
 
 def main(config, device, tags, dir_project):
