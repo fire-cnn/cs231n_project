@@ -13,6 +13,7 @@ from transformers import (ViTForImageClassification,
                           Trainer)
 
 import numpy as np
+from sklearn.metrics import precision_recall_fscore_support
 
 from src.config import Config
 from src.dataset import NAIPImagery
@@ -44,12 +45,22 @@ def load_dataset(path_to_train,
     return training_dataset, test_dataset
 
 
-def compute_metrics(eval_pred):
-    # Setup evaluation
-    metric = evaluate.load("accuracy")
-    logits, labels = eval_pred
-    predictions = np.argmax(logits, axis=-1)
-    return metric.compute(predictions=predictions, references=labels)
+#def compute_metrics(eval_pred):
+#    # Setup evaluation
+#    metric = evaluate.load("accuracy")
+#
+#    logits, labels = eval_pred
+#    predictions = np.argmax(logits, axis=-1)
+#    return metric.compute(predictions=predictions, references=labels)
+
+
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions.argmax(-1)
+    precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average="binary")
+    acc = accuracy_score(labels, preds)
+    
+    return {"accuracy": acc, "f1": f1, "precision": precision, "recall": recall}
 
 
 def collator(batch):
