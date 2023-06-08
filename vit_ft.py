@@ -5,7 +5,7 @@ import pdb
 import argparse
 import torch
 import wandb
-import evaluate
+from evaluate import load
 from transformers import (ViTForImageClassification,
                           ViTFeatureExtractor,
                           ViTImageProcessor,
@@ -54,13 +54,14 @@ def load_dataset(path_to_train,
 #    return metric.compute(predictions=predictions, references=labels)
 
 
-def compute_metrics(pred):
-    labels = pred.label_ids
-    preds = pred.predictions.argmax(-1)
-    precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average="binary")
-    acc = accuracy_score(labels, preds)
+def compute_metrics(eval_pred):
+    accuracy = load("accuracy")
+    f1 = load("f1")
+    # compute the accuracy and f1 scores & return them
+    accuracy_score = accuracy.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids)
+    f1_score = f1.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids, average="macro")
     
-    return {"accuracy": acc, "f1": f1, "precision": precision, "recall": recall}
+    return {**accuracy_score, **f1_score}
 
 
 def collator(batch):
