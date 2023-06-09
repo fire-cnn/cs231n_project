@@ -92,7 +92,8 @@ def main(config, device, tags, dir_project):
     #pdb.set_trace()
     # Create model
     model = ViTForImageClassification.from_pretrained(model_name, num_labels=2,
-                                                      hidden_dropout_prob=0.2,
+                                                      hidden_dropout_prob=config_train["dropout_hidden"],
+                                                      attention_probs_dropout_prob=config_train["dropout_attention"],
                                                       ignore_mismatched_sizes=True)
 
     # Start trainer
