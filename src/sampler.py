@@ -12,7 +12,8 @@ except:
     is_torchvision_installed = False
 import torch.utils.data
 import random
-from tqdm import tqdm 
+from tqdm import tqdm
+
 
 class BalancedBatchSampler(torch.utils.data.sampler.Sampler):
     def __init__(self, dataset, labels=None):

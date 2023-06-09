@@ -31,7 +31,7 @@ class NAIPImagery(Dataset):
         columns_of_interest=None,
         id_var=None,
         add_response=None,
-        label_column=None
+        label_column=None,
     ) -> None:
         """
         A dataset class to represent NAIP house data in two
@@ -55,12 +55,12 @@ class NAIPImagery(Dataset):
         self.tokenizer = tokenizer
 
         # If no length is defined, then use the tokenizer max number. The
-        # tokenizer will pad the string to that legth. 
+        # tokenizer will pad the string to that legth.
         if max_prompt_len is None:
             self.max_prompt_len = tokenizer.model_max_length
         else:
             self.max_prompt_len = max_prompt_len
-        
+
         self.paths = list(Path(self.images_dir).glob("*.png"))
 
         if isinstance(tabular_data, str):
@@ -106,20 +106,20 @@ class NAIPImagery(Dataset):
         # Tokenize the text
         if self.tokenizer is not None:
             text_img = self.dict_prompts[id_img]
-            embeddings_dict = self.tokenizer(text=text_img,
-                                             truncation=True,
-                                             padding="max_length",
-                                             max_length=self.max_prompt_len)
+            embeddings_dict = self.tokenizer(
+                text=text_img,
+                truncation=True,
+                padding="max_length",
+                max_length=self.max_prompt_len,
+            )
 
-            out = {"pixel_values": img, 
-                   "labels": label_img,
-                   "input_ids": embeddings_dict["input_ids"],
-                   "attention_mask": embeddings_dict["attention_mask"]
-                   }
+            out = {
+                "pixel_values": img,
+                "labels": label_img,
+                "input_ids": embeddings_dict["input_ids"],
+                "attention_mask": embeddings_dict["attention_mask"],
+            }
         else:
-            out = {"pixel_values": img,
-                   "labels": label_img
-                   }
+            out = {"pixel_values": img, "labels": label_img}
 
-        return out 
-
+        return out

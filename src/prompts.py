@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
+
 def prompting(
     df,
     prompt_type,
@@ -66,7 +67,9 @@ def prompting(
     df_filtered = df.filter(columns_of_interest)
 
     # Hacky, but change labels so they can be informative for our purposes
-    df_filtered = df_filtered.replace({label_column: {"Yes": "burned", "No": "unburned"}})
+    df_filtered = df_filtered.replace(
+        {label_column: {"Yes": "burned", "No": "unburned"}}
+    )
 
     for col_name in df_filtered:
         if df_filtered[col_name].dtype == np.float32:
@@ -79,8 +82,11 @@ def prompting(
     # Create prompt
     if prompt_type == "bank":
         dict_rows = {}
-        for idx, row in tqdm(df_filtered.iterrows(), total=df_filtered.shape[0],
-                             desc=f"Transforming tabular to {prompt_type} text prompts"):
+        for idx, row in tqdm(
+            df_filtered.iterrows(),
+            total=df_filtered.shape[0],
+            desc=f"Transforming tabular to {prompt_type} text prompts",
+        ):
             row_string = []
             for col in row.keys():
                 if col == id_var or col == label_column:
@@ -106,8 +112,11 @@ def prompting(
 
     elif prompt_type == "template":
         dict_rows = {}
-        for idx, row in tqdm(df_filtered.iterrows(), total=df_filtered.shape[0],
-                             desc=f"Transforming tabular to {prompt_type} text prompts"):
+        for idx, row in tqdm(
+            df_filtered.iterrows(),
+            total=df_filtered.shape[0],
+            desc=f"Transforming tabular to {prompt_type} text prompts",
+        ):
             row_subset = row[cols_template]
             template = template.rstrip()
             s = template.format(*row_subset)
