@@ -1,0 +1,76 @@
+# Configuration file for prompting
+
+train:
+  model_name: "roberta-clip"
+  path_to_train: "data/train"
+  path_to_test: "data/test"
+  tabular_data_path: "/mnt/sherlock/oak/mburke/cnn_fire_fuel/cleaned_homes/augmented_dataset.csv"
+  epochs: 10
+  output_dir: "results_dual_enc"
+  resume_from_checkpoint: False
+  batch_size_train: 16
+  batch_size_test: 16
+  weight_decay: 0.01
+
+prompts:
+  label_column: destroyed
+  id_var: homeid
+  prompt_type: template
+  columns_of_interest:
+    - yearbuilt 
+    - aspect
+    - elev
+    - slope_r25
+    - air_temperature
+    - dead_fuel_moisture_100hr 
+    - mean_vapor_pressure_deficit
+    - gpotential_evapotranspiration'
+    - precipitation_amount
+    - relative_humidity
+    - specific_humidity
+    - surface_downwelling_shortwave_flux_in_air
+    - wind_from_direction
+    - wind_speed
+    - age
+    - riskToStru
+    - firename
+    - homeid
+    - destroyed
+
+  column_name_map:
+    yearbuilt: Year Built,
+    elev: Elevation,
+    slope_r25: Slope,
+    aspect: Aspect,
+    air_temperature: Temperature,
+    dead_fuel_moisture_100hr: Fuel Moisture,
+    mean_vapor_pressure_deficit: Vapor Pressure Deficit,
+    potential_evapotranspiration: Evapotranspiration,
+    precipitation_amount: Precipitation,
+    relative_humidity: Humidity,
+    specific_humidity: Specific Humidity,
+    wind_from_direction: Wind Direction,
+    wind_speed: Wind Speed,
+    surface_downwelling_shortwave_flux_in_air: Shortwave Flux,
+    age: Age,
+    firename: Fire Name,
+    riskToStru: Risk to structure
+
+  template: >
+    This house is {} years old. It is located {} meters above sea level with a
+    slope of {}. Temperature is {} degrees. Relative humidity is {}.  Wind
+    speed is {}. The vapor pressure deficit is {} and the fuel moisture was {}.
+    The risk to structure is {}. The fire name is {}
+  cols_template:
+    - age
+    - elev
+    - slope_r25
+    - air_temperature
+    - relative_humidity
+    - wind_speed
+    - mean_vapor_pressure_deficit 
+    - dead_fuel_moisture_100hr
+    - riskToStru
+    - firename
+
+  final_prompt: "This house is"
