@@ -2,8 +2,7 @@
 
 train:
   model_name: "google/vit-base-patch16-224-in21k"
-  path_to_train: "data/train"
-  path_to_test: "data/test"
+  path_to_data: "data/images"
   tabular_data_path: "/mnt/sherlock/oak/mburke/cnn_fire_fuel/cleaned_homes/augmented_dataset.csv"
   epochs: 20
   output_dir: "results"

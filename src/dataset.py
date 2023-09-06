@@ -66,6 +66,8 @@ class NAIPImagery(Dataset):
         if isinstance(tabular_data, str):
             self.tabular_data = pd.read_csv(self.tabular_data)
 
+       
+
         # Transform tabular data into prompts
         if self.tokenizer is not None:
             self.dict_prompts = prompting(
@@ -79,8 +81,16 @@ class NAIPImagery(Dataset):
                 final_prompt=self.final_prompt,
                 add_response=self.add_response,
                 columns_of_interest=self.columns_of_interest,
-            )
+                )
 
+    @property
+    def weights(self):
+        # Calculate training weights
+        labs = [p.stem.split("_")[-1] for p in self.paths]
+        _, counts = np.unique(labs, return_counts=True)
+
+        return np.sum(counts) / (counts * 2)
+ 
     def __len__(self):
         return len(self.paths)
 
@@ -120,6 +130,6 @@ class NAIPImagery(Dataset):
                 "attention_mask": embeddings_dict["attention_mask"],
             }
         else:
-            out = {"pixel_values": img, "labels": label_img}
+            out = {"pixel_values": img["pixel_values"], "labels": label_img}
 
         return out

@@ -14,49 +14,38 @@ from transformers import (ViTForImageClassification,
 
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support
+from torch.utils.data import random_split
 
 from src.config import Config
 from src.dataset import NAIPImagery
 
-def load_dataset(path_to_train,
-                 path_to_test,
-                 tabular_data_path,
-                 config_prompt,
-                 tokenizer=None,
+def load_dataset(path_to_data,
+                 split_share=0.9,
                  preprocess=None):
     """ Load data from test and train!
     """
-
-
+    
+    gen = torch.Generator().manual_seed(42)
+    
     # Evaluation dataset
-    test_dataset = NAIPImagery(images_dir=path_to_test,
-                               transform=preprocess,
-                               tabular_data=tabular_data_path,
-                               max_prompt_len=70,
-                               tokenizer=tokenizer)
+    dataset = NAIPImagery(images_dir=path_to_data,
+                          transform=preprocess,
+                          max_prompt_len=70,
+                          tokenizer=None)
 
-    # Training dataset
-    training_dataset = NAIPImagery(images_dir=path_to_train,
-                                   tabular_data=tabular_data_path,
-                                   tokenizer=tokenizer,
-                                   max_prompt_len=70,
-                                   transform=preprocess)
+    # Split dataset
+    train_size = int(split_share * len(dataset))
+    test_size = len(dataset) - train_size
 
-    return training_dataset, test_dataset
+    train, test = random_split(dataset, [train_size, test_size], generator=gen)
 
-
-#def compute_metrics(eval_pred):
-#    # Setup evaluation
-#    metric = evaluate.load("accuracy")
-#
-#    logits, labels = eval_pred
-#    predictions = np.argmax(logits, axis=-1)
-#    return metric.compute(predictions=predictions, references=labels)
+    return train, test
 
 
 def compute_metrics(eval_pred):
     accuracy = load("accuracy")
     f1 = load("f1")
+    
     # compute the accuracy and f1 scores & return them
     accuracy_score = accuracy.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids)
     f1_score = f1.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids, average="weighted")
@@ -67,8 +56,8 @@ def compute_metrics(eval_pred):
 def collator(batch):
     """ Stucture data for tranining
     """
-    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    return  {"pixel_values": torch.cat([x["pixel_values"]["pixel_values"] for x in batch]),
+    
+    return  {"pixel_values": torch.cat([x["pixel_values"] for x in batch]),
              "labels": torch.stack([x["labels"] for x in batch])
             }
 
@@ -78,40 +67,51 @@ def main(config, device, tags, dir_project):
     config_train = config.train_config
     model_name = config_train["model_name"]
 
-    #feature_extractor = ViTFeatureExtractor.from_pretrained(model_name)
     image_processor = ViTImageProcessor.from_pretrained(model_name)
 
     # Load data
     training_dataset, test_dataset = load_dataset(preprocess=image_processor,
-                                                  path_to_train=config_train["path_to_train"],
-                                                  path_to_test=config_train["path_to_test"],
-                                                  tabular_data_path=config_train["tabular_data_path"],
-                                                  config_prompt=config
-                                                  )
+                                                  path_to_data=config_train["path_to_data"])
 
-    #pdb.set_trace()
     # Create model
     model = ViTForImageClassification.from_pretrained(model_name, num_labels=2,
-                                                      hidden_dropout_prob=config_train["dropout_hidden"],
-                                                      attention_probs_dropout_prob=config_train["dropout_attention"],
+                                                      #hidden_dropout_prob=config_train["dropout_hidden"],
+                                                      #attention_probs_dropout_prob=config_train["dropout_attention"],
                                                       ignore_mismatched_sizes=True)
 
     # Start trainer
-    training_args = TrainingArguments(output_dir=config_train["output_dir"],
-                                      num_train_epochs=config_train["epochs"],
-                                      resume_from_checkpoint=config_train["resume_from_checkpoint"],
-                                      load_best_model_at_end=True,
-                                      save_strategy="epoch",
-                                      remove_unused_columns=False,
-                                      evaluation_strategy="epoch",
-                                      per_device_train_batch_size=config_train["batch_size_train"],
-                                      per_device_eval_batch_size=config_train["batch_size_test"],
-                                      warmup_steps=config_train["warmup_steps"],
-                                      learning_rate=float(config_train["learning_rate"]),
-                                      weight_decay=config_train["weight_decay"],
-                                      logging_dir="logs",
-                                      report_to="wandb"
-                                      )
+    training_args = TrainingArguments(
+        f"{model_name}-finetuned-fires",
+        remove_unused_columns=False,
+        evaluation_strategy = "epoch",
+        save_strategy = "epoch",
+        learning_rate=5e-5,
+        per_device_train_batch_size=20,
+        gradient_accumulation_steps=4,
+        per_device_eval_batch_size=20,
+        num_train_epochs=3,
+        warmup_ratio=0.1,
+        logging_steps=10,
+        load_best_model_at_end=True,
+        metric_for_best_model="accuracy",
+        logging_dir="logs",
+        report_to="wandb",
+    )
+#    training_args = TrainingArguments(output_dir=config_train["output_dir"],
+#                                      num_train_epochs=config_train["epochs"],
+#                                      resume_from_checkpoint=config_train["resume_from_checkpoint"],
+#                                      load_best_model_at_end=True,
+#                                      save_strategy="epoch",
+#                                      remove_unused_columns=False,
+#                                      evaluation_strategy="epoch",
+#                                      per_device_train_batch_size=config_train["batch_size_train"],
+#                                      per_device_eval_batch_size=config_train["batch_size_test"],
+#                                      warmup_steps=config_train["warmup_steps"],
+#                                      learning_rate=float(config_train["learning_rate"]),
+#                                      weight_decay=config_train["weight_decay"],
+#                                      logging_dir="logs",
+#                                      report_to="wandb"
+#                                      )
     with wandb.init(
         project="cnn_wildfire_households",
         mode="online",
