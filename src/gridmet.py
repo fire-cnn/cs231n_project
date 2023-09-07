@@ -14,7 +14,8 @@ from dask.distributed import Client
 
 
 def get_gridmet(start_date, end_date, geometry, save_path):
-    """ """
+    """ Get gridmet data 
+    """
 
     client = Client()
 
@@ -69,10 +70,10 @@ def get_gridmet(start_date, end_date, geometry, save_path):
     )
 
     # Stupid hack to avoid errors during saving
-    vars_list = list(ds_cali.data_vars)
+    vars_list = list(ds_geom.data_vars)
     for var in vars_list:
-        del ds_cali[var].attrs["grid_mapping"]
+        del ds_geom[var].attrs["grid_mapping"]
 
-    ds_cali.to_netcdf(save_path)
+    ds_geom.to_netcdf(save_path)
 
     return None

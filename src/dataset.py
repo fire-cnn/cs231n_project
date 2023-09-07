@@ -11,6 +11,16 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 
+from torchvision.transforms import (
+    CenterCrop,
+    Compose,
+    Normalize,
+    RandomHorizontalFlip,
+    RandomResizedCrop,
+    Resize,
+    ToTensor,
+)
+
 from src.prompts import prompting
 
 
@@ -66,7 +76,6 @@ class NAIPImagery(Dataset):
         if isinstance(tabular_data, str):
             self.tabular_data = pd.read_csv(self.tabular_data)
 
-       
 
         # Transform tabular data into prompts
         if self.tokenizer is not None:
@@ -96,7 +105,6 @@ class NAIPImagery(Dataset):
 
     def __getitem__(self, idx):
         path_img = self.paths[idx]
-
         # Get image id and get text prompt
         id_img = int(path_img.stem.split("_")[0])
 
@@ -104,12 +112,9 @@ class NAIPImagery(Dataset):
         label_img = int(path_img.stem.split("_")[-1])
         label_img = torch.as_tensor(np.array(label_img))
 
-        img = Image.open(str(self.paths[idx])).resize((224, 224))
-
+        img = Image.open(str(self.paths[idx]))
+        
         # Tranform to tensor
-        img = np.array(img)
-        img = ToTensor()(img)
-
         if self.transform:
             img = self.transform(img, return_tensors="pt")
 

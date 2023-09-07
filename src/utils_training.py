@@ -1,6 +1,45 @@
+import os
+import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
+from pathlib import Path
+
+def create_balanced_example(path_to_examples, 
+                            path_to_example_dataset,
+                            size=50):
+    """ Create test dataset
+    """
+
+    # Let's always get the same sets
+    np.random.seed(42)
+
+    # Create directory if no exist
+    if not os.path.exists(path_to_example_dataset):
+        os.makedirs(path_to_example_dataset, exist_ok=True)
+
+
+    path_images = list(Path(path_to_examples).rglob("*.png"))
+
+    pos_examples, neg_examples = [], []
+    for p in path_images:
+        if p.stem.split("_")[-1] == "1":
+            pos_examples.append(p)
+        else:
+            neg_examples.append(p)
+
+    # Create subset
+    subset_pos = np.random.choice(pos_examples, size)
+    subset_neg = np.random.choice(neg_examples, size)
+
+    for pos, neg in zip(subset_pos, subset_neg):
+        pos_target = os.path.join(path_to_example_dataset, pos.name)
+        neg_target = os.path.join(path_to_example_dataset, neg.name)
+
+        shutil.copyfile(pos, pos_target)
+        shutil.copyfile(neg, neg_target)
+    
+    return None
 
 
 def save_batch_images(batch_images, filename=None, title=None):

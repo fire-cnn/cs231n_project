@@ -1,7 +1,9 @@
 """ ViT fine-tuning
 """
 
+
 import pdb
+import functools
 import argparse
 import torch
 import wandb
@@ -18,10 +20,11 @@ from torch.utils.data import random_split
 
 from src.config import Config
 from src.dataset import NAIPImagery
+from src.trainer import CustomTrainer
 
 def load_dataset(path_to_data,
                  split_share=0.9,
-                 preprocess=None):
+                 transform=None):
     """ Load data from test and train!
     """
     
@@ -29,7 +32,7 @@ def load_dataset(path_to_data,
     
     # Evaluation dataset
     dataset = NAIPImagery(images_dir=path_to_data,
-                          transform=preprocess,
+                          transform=transform,
                           max_prompt_len=70,
                           tokenizer=None)
 
@@ -41,16 +44,32 @@ def load_dataset(path_to_data,
 
     return train, test
 
+def model_init():
+    return  ViTForImageClassification.from_pretrained(
+        'google/vit-base-patch16-224-in21k',
+        num_labels=2,
+    )
 
 def compute_metrics(eval_pred):
-    accuracy = load("accuracy")
-    f1 = load("f1")
-    
-    # compute the accuracy and f1 scores & return them
-    accuracy_score = accuracy.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids)
-    f1_score = f1.compute(predictions=np.argmax(eval_pred.predictions, axis=1), references=eval_pred.label_ids, average="weighted")
 
-    return {**accuracy_score, **f1_score}
+    # Get values from Trainer loss
+    logits, labels = eval_pred.predictions, eval_pred.label_ids
+    preds = np.argmax(logits, axis=1)
+
+    # Get metrics
+    metrics = dict()
+
+    accuracy_metric = load("accuracy")
+    precision_metric = load("precision")
+    recall_metric = load("recall")
+    f1_metric = load("f1")
+
+    metrics.update(accuracy_metric.compute(predictions=preds, references=labels))
+    metrics.update(precision_metric.compute(predictions=preds, references=labels, average="weighted"))
+    metrics.update(recall_metric.compute(predictions=preds, references=labels, average="weighted"))
+    metrics.update(f1_metric.compute(predictions=preds, references=labels, average="weighted"))
+
+    return metrics
 
 
 def collator(batch):
@@ -62,86 +81,110 @@ def collator(batch):
             }
 
 
-def main(config, device, tags, dir_project):
+def train(training_dataset, test_dataset, image_processor, config=None):
+    """ Training loop for sweep
+    """
+   
+    with wandb.init(config=config):
+        # Sweep config
+        config = wandb.config
 
-    config_train = config.train_config
-    model_name = config_train["model_name"]
+        # Start trainer
+        training_args = TrainingArguments(
+                output_dir=f"vit-sweeps-finetuned-fires",
+                learning_rate=config.learning_rate,
+                per_device_train_batch_size=config.batch_size,
+                num_train_epochs=10,
+                weight_decay=config.weight_decay,
+                per_device_eval_batch_size=16,
+                warmup_steps=config.warmup_steps,
+                logging_strategy="epoch",
+                evaluation_strategy="epoch",
+                save_strategy="epoch",
+                load_best_model_at_end=True,
+                metric_for_best_model="accuracy",
+                logging_dir="logs",
+                report_to="wandb",
+                fp16=True
+                )
+ 
 
-    image_processor = ViTImageProcessor.from_pretrained(model_name)
-
-    # Load data
-    training_dataset, test_dataset = load_dataset(preprocess=image_processor,
-                                                  path_to_data=config_train["path_to_data"])
-
-    # Create model
-    model = ViTForImageClassification.from_pretrained(model_name, num_labels=2,
-                                                      #hidden_dropout_prob=config_train["dropout_hidden"],
-                                                      #attention_probs_dropout_prob=config_train["dropout_attention"],
-                                                      ignore_mismatched_sizes=True)
-
-    # Start trainer
-    training_args = TrainingArguments(
-        f"{model_name}-finetuned-fires",
-        remove_unused_columns=False,
-        evaluation_strategy = "epoch",
-        save_strategy = "epoch",
-        learning_rate=5e-5,
-        per_device_train_batch_size=20,
-        gradient_accumulation_steps=4,
-        per_device_eval_batch_size=20,
-        num_train_epochs=3,
-        warmup_ratio=0.1,
-        logging_steps=10,
-        load_best_model_at_end=True,
-        metric_for_best_model="accuracy",
-        logging_dir="logs",
-        report_to="wandb",
-    )
-#    training_args = TrainingArguments(output_dir=config_train["output_dir"],
-#                                      num_train_epochs=config_train["epochs"],
-#                                      resume_from_checkpoint=config_train["resume_from_checkpoint"],
-#                                      load_best_model_at_end=True,
-#                                      save_strategy="epoch",
-#                                      remove_unused_columns=False,
-#                                      evaluation_strategy="epoch",
-#                                      per_device_train_batch_size=config_train["batch_size_train"],
-#                                      per_device_eval_batch_size=config_train["batch_size_test"],
-#                                      warmup_steps=config_train["warmup_steps"],
-#                                      learning_rate=float(config_train["learning_rate"]),
-#                                      weight_decay=config_train["weight_decay"],
-#                                      logging_dir="logs",
-#                                      report_to="wandb"
-#                                      )
-    with wandb.init(
-        project="cnn_wildfire_households",
-        mode="online",
-        tags=tags,
-        dir=dir_project,
-        group="vit"):
-
-        trainer = Trainer(model=model,
+        trainer = CustomTrainer(
+                model=model_init(),
                 args=training_args,
                 train_dataset=training_dataset,
                 eval_dataset=test_dataset,
                 tokenizer=image_processor,
                 compute_metrics=compute_metrics,
-                data_collator=collator).train()
+                data_collator=collator
+                )
 
+        trainer.train()
 
-    return None
+def main(config, train_fn):
+    """ Sweep configuration through W&B 
+    """
+    
+    config_train = config.train_config
+    project_name = config_train["project_name"]
+    model_name = config_train["model_name"]
+    
+    # Add image processing
+    image_processor = ViTImageProcessor.from_pretrained(model_name)
+ 
+    # Load data
+    training_dataset, test_dataset = load_dataset(transform=image_processor,
+                                                  path_to_data=config_train["path_to_data"])
+
+    train_fn_partial = functools.partial(train_fn, 
+                                         training_dataset, 
+                                         test_dataset,
+                                         image_processor)
+
+    # Sweep configuration for training
+    sweep_configuration = {
+            "method": "random",
+            "name": "vit_sweep",
+            "parameters": {
+                "batch_size": {
+                    "distribution": "q_log_uniform_values",
+                    "q": 4,
+                    "max": 32,
+                    "min": 8
+                    },
+                "learning_rate": {
+                    "distribution": "uniform",
+                    "max": 0.1,
+                    "min": 0
+                    },
+                "weight_decay": {
+                    "distribution": "uniform",
+                    "max": 0.5,
+                    "min": 0.1
+                    },
+                "warmup_steps": {
+                    "distribution": "int_uniform",
+                    "max": 100,
+                    "min": 0
+                }}
+                }
+    # Set up sweep in wandb
+    sweep_id = wandb.sweep(sweep_configuration, project=project_name)
+    
+    # Start sweep
+    wandb.agent(sweep_id, train_fn_partial, count=20)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", type=str, help="Path to YAML config file")
-    parser.add_argument("--dir_project", type=str, default="./wandb", help="Path for W&B saved data")
-    parser.add_argument("--tags", type=str, help="Tags for W&B")
 
     # Init args
     args = parser.parse_args()
     path_to_config = args.config_file
-    path_to_dir = args.dir_project
-    tags = [str(item) for item in args.tags.split(",")]
-
+    
+    # Init W&B
+    wandb.login()
 
     ############################# CUDA CONFIGURATION ##############################
     device = "cpu"
@@ -153,4 +196,4 @@ if __name__ == "__main__":
     ###############################################################################
 
     config =  Config(path_to_config)
-    main(config, device, tags, path_to_dir)
+    main(config, train) 
