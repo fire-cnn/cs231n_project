@@ -81,11 +81,12 @@ def collator(batch):
             }
 
 
-def train(training_dataset, test_dataset, image_processor, config=None):
+def train(training_dataset, test_dataset, image_processor, wandb_dir, config=None):
     """ Training loop for sweep
     """
    
-    with wandb.init(config=config):
+    with wandb.init(config=config,
+                    dir=wandb_dir):
         # Sweep config
         config = wandb.config
 
@@ -139,7 +140,8 @@ def main(config, train_fn):
     train_fn_partial = functools.partial(train_fn, 
                                          training_dataset, 
                                          test_dataset,
-                                         image_processor)
+                                         image_processor,
+                                         config_train["wandb_dir"])
 
     # Sweep configuration for training
     sweep_configuration = {

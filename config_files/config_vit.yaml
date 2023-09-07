@@ -3,7 +3,9 @@
 train:
   model_name: "google/vit-base-patch16-224-in21k"
   project_name: "cnn_wildfire_households"
-  path_to_data: "/oak/stanford/groups/mburke/cnn_fire_fuel/data/images_examples/"
+  #path_to_data: "/oak/stanford/groups/mburke/cnn_fire_fuel/data/images_examples/"
+  path_to_data: "data/images_examples"
+  wandb_dir: "/tmp/test_wandb_dir"
   epochs: 20
   output_dir: "results"
   resume_from_checkpoint: False
