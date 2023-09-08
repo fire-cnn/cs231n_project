@@ -81,7 +81,7 @@ def collator(batch):
             }
 
 
-def train(training_dataset, test_dataset, image_processor, wandb_dir, config=None):
+def train(training_dataset, test_dataset, image_processor, wandb_dir, sweep_dir, config=None):
     """ Training loop for sweep
     """
    
@@ -92,7 +92,7 @@ def train(training_dataset, test_dataset, image_processor, wandb_dir, config=Non
 
         # Start trainer
         training_args = TrainingArguments(
-                output_dir=f"vit-sweeps-finetuned-fires",
+                output_dir=sweep_dir,
                 learning_rate=config.learning_rate,
                 per_device_train_batch_size=config.batch_size,
                 num_train_epochs=10,
@@ -141,7 +141,9 @@ def main(config, train_fn):
                                          training_dataset, 
                                          test_dataset,
                                          image_processor,
-                                         config_train["wandb_dir"])
+                                         config_train["wandb_dir"],
+                                         config_train["sweep_dir"]
+                                         )
 
     # Sweep configuration for training
     sweep_configuration = {
