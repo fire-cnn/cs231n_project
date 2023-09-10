@@ -1,8 +1,10 @@
 """ ViT fine-tuning
 """
 
-
+import sys
+import traceback
 import pdb
+
 import functools
 import argparse
 import torch
@@ -14,6 +16,19 @@ from transformers import (ViTForImageClassification,
                           TrainingArguments,
                           Trainer)
 
+from torchvision.transforms import (
+    Compose,
+    Normalize,
+    Resize,
+    RandomResizedCrop,
+    RandomHorizontalFlip,
+    RandomVerticalFlip,
+    RandomPerspective,
+    RandomAdjustSharpness,
+    ToTensor,
+    ToPILImage
+)
+
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support
 from torch.utils.data import random_split
@@ -22,25 +37,42 @@ from src.config import Config
 from src.dataset import NAIPImagery
 from src.trainer import CustomTrainer
 
-def load_dataset(path_to_data,
-                 split_share=0.9,
+
+def load_dataset(path_to_train,
+                 path_to_test,
                  transform=None):
     """ Load data from test and train!
     """
     
-    gen = torch.Generator().manual_seed(42)
     
+    size = transform.size["height"]
+
+    # Set up transform
+    train_aug_transforms = Compose([
+        Resize((size, size)),
+        RandomResizedCrop(size=size, antialias=True),
+        RandomHorizontalFlip(p=0.5),
+        RandomVerticalFlip(p=0.5),
+        ToTensor(),
+        Normalize(mean=transform.image_mean, std=transform.image_std),
+    ])
+     
+    valid_aug_transforms = Compose([
+        Resize(size=(size, size)),
+        ToTensor(),
+        Normalize(mean=transform.image_mean, std=transform.image_std),
+    ])
+   
     # Evaluation dataset
-    dataset = NAIPImagery(images_dir=path_to_data,
-                          transform=transform,
+    train = NAIPImagery(images_dir=path_to_train,
+                          transform=train_aug_transforms,
                           max_prompt_len=70,
                           tokenizer=None)
 
-    # Split dataset
-    train_size = int(split_share * len(dataset))
-    test_size = len(dataset) - train_size
-
-    train, test = random_split(dataset, [train_size, test_size], generator=gen)
+    test = NAIPImagery(images_dir=path_to_test,
+                          transform=valid_aug_transforms,
+                          max_prompt_len=70,
+                          tokenizer=None)
 
     return train, test
 
@@ -90,37 +122,42 @@ def train(training_dataset, test_dataset, image_processor, wandb_dir, sweep_dir,
         # Sweep config
         config = wandb.config
 
-        # Start trainer
-        training_args = TrainingArguments(
-                output_dir=sweep_dir,
-                learning_rate=config.learning_rate,
-                per_device_train_batch_size=config.batch_size,
-                num_train_epochs=10,
-                weight_decay=config.weight_decay,
-                per_device_eval_batch_size=16,
-                warmup_steps=config.warmup_steps,
-                logging_strategy="epoch",
-                evaluation_strategy="epoch",
-                save_strategy="epoch",
-                load_best_model_at_end=True,
-                metric_for_best_model="accuracy",
-                logging_dir="logs",
-                report_to="wandb",
-                fp16=True
-                )
+        try:
+            # Start trainer
+            training_args = TrainingArguments(
+                    output_dir=sweep_dir,
+                    learning_rate=config.learning_rate,
+                    per_device_train_batch_size=config.batch_size,
+                    num_train_epochs=20,
+                    weight_decay=config.weight_decay,
+                    per_device_eval_batch_size=16,
+                    warmup_steps=config.warmup_steps,
+                    logging_strategy="epoch",
+                    evaluation_strategy="epoch",
+                    save_strategy="epoch",
+                    load_best_model_at_end=True,
+                    metric_for_best_model="accuracy",
+                    logging_dir="logs",
+                    report_to="wandb",
+                    fp16=True
+                    )
  
 
-        trainer = CustomTrainer(
-                model=model_init(),
-                args=training_args,
-                train_dataset=training_dataset,
-                eval_dataset=test_dataset,
-                tokenizer=image_processor,
-                compute_metrics=compute_metrics,
-                data_collator=collator
-                )
+            trainer = Trainer(
+                    model=model_init(),
+                    args=training_args,
+                    train_dataset=training_dataset,
+                    eval_dataset=test_dataset,
+                    tokenizer=image_processor,
+                    compute_metrics=compute_metrics,
+                    data_collator=collator
+                    )
 
-        trainer.train()
+            trainer.train()
+
+        except Exception:
+            print(traceback.print_exc(), file=sys.stderr)
+
 
 def main(config, train_fn):
     """ Sweep configuration through W&B 
@@ -135,7 +172,8 @@ def main(config, train_fn):
  
     # Load data
     training_dataset, test_dataset = load_dataset(transform=image_processor,
-                                                  path_to_data=config_train["path_to_data"])
+                                                  path_to_train=config_train["path_to_train"],
+                                                  path_to_test=config_train["path_to_test"])
 
     train_fn_partial = functools.partial(train_fn, 
                                          training_dataset, 
@@ -201,3 +239,4 @@ if __name__ == "__main__":
 
     config =  Config(path_to_config)
     main(config, train) 
+

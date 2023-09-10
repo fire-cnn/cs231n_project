@@ -116,7 +116,7 @@ class NAIPImagery(Dataset):
         
         # Tranform to tensor
         if self.transform:
-            img = self.transform(img, return_tensors="pt")
+            img = self.transform(img)
 
         # Tokenize the text
         if self.tokenizer is not None:
@@ -135,6 +135,6 @@ class NAIPImagery(Dataset):
                 "attention_mask": embeddings_dict["attention_mask"],
             }
         else:
-            out = {"pixel_values": img["pixel_values"], "labels": label_img}
+            out = {"pixel_values": img[None,:], "labels": label_img}
 
         return out
