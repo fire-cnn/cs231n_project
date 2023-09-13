@@ -24,6 +24,6 @@ python run_clip.py \
     --warmup_steps 500 \
     --weight_decay 0.01 \
     --overwrite_output_dir \
-    --save_strategy epoch \
-    --max_train_samples 100 \
-    --max_eval_samples 100 
+    --save_strategy epoch 
+    #--max_train_samples 100 \
+    #--max_eval_samples 100 
