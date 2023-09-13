@@ -1,9 +1,27 @@
 import os
+import torch
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 from pathlib import Path
+from PIL import Image
+
+
+def _read_image(path):
+    """ Read Image from path
+
+    Replicate torchvision.io.read_image because Sherlock is annoying!
+    (couldn't compile torchvision with libpng support)
+
+    """
+    img = Image.open(path)
+    img_arr = np.array(img)
+
+    # To tensor
+    img_torch = torch.from_numpy(img_arr)
+
+    return torch.transpose(img_torch, -1, 0)
 
 
 def create_balanced_example(path_to_examples, path_to_example_dataset, size=50):

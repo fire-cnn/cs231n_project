@@ -54,7 +54,7 @@ from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
 
 from vit_ft import compute_metrics
-from src.trainer import CustomTrainer
+from src.utils_training import _read_image
 
 logger = logging.getLogger(__name__)
 
@@ -498,7 +498,8 @@ def main():
 
     def transform_images(examples):
         images = [
-            read_image(image_file, mode=ImageReadMode.RGB)
+            _read_image(image_file)
+            #read_image(image_file, mode=ImageReadMode.RGB)
             for image_file in examples[image_column]
         ]
         examples["pixel_values"] = [image_transformations(image) for image in images]
