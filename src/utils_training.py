@@ -5,11 +5,9 @@ import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 from pathlib import Path
 
-def create_balanced_example(path_to_examples, 
-                            path_to_example_dataset,
-                            size=50):
-    """ Create test dataset
-    """
+
+def create_balanced_example(path_to_examples, path_to_example_dataset, size=50):
+    """Create test dataset"""
 
     # Let's always get the same sets
     np.random.seed(42)
@@ -17,7 +15,6 @@ def create_balanced_example(path_to_examples,
     # Create directory if no exist
     if not os.path.exists(path_to_example_dataset):
         os.makedirs(path_to_example_dataset, exist_ok=True)
-
 
     path_images = list(Path(path_to_examples).rglob("*.png"))
 
@@ -38,7 +35,7 @@ def create_balanced_example(path_to_examples,
 
         shutil.copyfile(pos, pos_target)
         shutil.copyfile(neg, neg_target)
-    
+
     return None
 
 

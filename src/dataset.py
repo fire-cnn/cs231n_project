@@ -76,7 +76,6 @@ class NAIPImagery(Dataset):
         if isinstance(tabular_data, str):
             self.tabular_data = pd.read_csv(self.tabular_data)
 
-
         # Transform tabular data into prompts
         if self.tokenizer is not None:
             self.dict_prompts = prompting(
@@ -90,7 +89,7 @@ class NAIPImagery(Dataset):
                 final_prompt=self.final_prompt,
                 add_response=self.add_response,
                 columns_of_interest=self.columns_of_interest,
-                )
+            )
 
     @property
     def weights(self):
@@ -99,7 +98,7 @@ class NAIPImagery(Dataset):
         _, counts = np.unique(labs, return_counts=True)
 
         return np.sum(counts) / (counts * 2)
- 
+
     def __len__(self):
         return len(self.paths)
 
@@ -113,7 +112,7 @@ class NAIPImagery(Dataset):
         label_img = torch.as_tensor(np.array(label_img))
 
         img = Image.open(str(self.paths[idx]))
-        
+
         # Tranform to tensor
         if self.transform:
             img = self.transform(img)
@@ -135,6 +134,6 @@ class NAIPImagery(Dataset):
                 "attention_mask": embeddings_dict["attention_mask"],
             }
         else:
-            out = {"pixel_values": img[None,:], "labels": label_img}
+            out = {"pixel_values": img[None, :], "labels": label_img}
 
         return out

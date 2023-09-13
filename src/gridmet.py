@@ -14,8 +14,7 @@ from dask.distributed import Client
 
 
 def get_gridmet(start_date, end_date, geometry, save_path):
-    """ Get gridmet data 
-    """
+    """Get gridmet data"""
 
     client = Client()
 
