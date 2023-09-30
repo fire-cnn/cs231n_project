@@ -1,4 +1,4 @@
-""" Create constrastive loss model 
+""" Create constrastive loss model
 """
 
 
@@ -105,4 +105,4 @@ if __name__ == "__main__":
     config = Config(path_to_config)
 
     create_model(name_vision, name_text, model_name)
-    create_data(config)
+    #create_data(config)

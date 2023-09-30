@@ -522,7 +522,10 @@ def main():
         train_dataset = dataset["train"]
         if data_args.max_train_samples is not None:
             max_train_samples = min(len(train_dataset), data_args.max_train_samples)
-            train_dataset = train_dataset.select(range(max_train_samples))
+
+            pdb.set_trace()
+            rand_idx = np.random.randint(0, len(train_dataset), max_train_samples)
+            train_dataset = train_dataset.select(rand_idx)
 
         train_dataset = train_dataset.filter(
             filter_corrupt_images,
