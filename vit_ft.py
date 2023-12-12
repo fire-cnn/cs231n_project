@@ -1,40 +1,30 @@
 """ ViT fine-tuning
 """
 
+import argparse
+import functools
 import sys
 import traceback
-import pdb
 
-import functools
-import argparse
+import numpy as np
 import torch
-import wandb
 from evaluate import load
-from transformers import (
-    ViTForImageClassification,
-    ViTFeatureExtractor,
-    ViTImageProcessor,
-    TrainingArguments,
-    Trainer,
-)
-
 from torchvision.transforms import (
     Compose,
     Normalize,
-    Resize,
-    RandomResizedCrop,
     RandomHorizontalFlip,
+    RandomResizedCrop,
     RandomVerticalFlip,
-    RandomPerspective,
-    RandomAdjustSharpness,
+    Resize,
     ToTensor,
-    ToPILImage,
+)
+from transformers import (
+    TrainingArguments,
+    ViTForImageClassification,
+    ViTImageProcessor,
 )
 
-import numpy as np
-from sklearn.metrics import precision_recall_fscore_support
-from torch.utils.data import random_split
-
+import wandb
 from src.config import Config
 from src.dataset import NAIPImagery
 from src.trainer import CustomTrainer
