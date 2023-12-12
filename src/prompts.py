@@ -1,7 +1,6 @@
 """ Prompt creation from tabular data
 """
 
-import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
@@ -58,10 +57,10 @@ def prompting(
     start, end, pad = special_tokens
 
     if prompt_type == "template" and template is None:
-        raise ValueError(f"Template exepcted!")
+        raise ValueError("Template exepcted!")
 
     if template is not None and cols_template is None:
-        raise ValueError(f"You need to pass column list for the prompt")
+        raise ValueError("You need to pass column list for the prompt")
 
     # Subset and round dataframe
     df_filtered = df.filter(columns_of_interest)

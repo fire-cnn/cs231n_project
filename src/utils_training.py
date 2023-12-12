@@ -1,15 +1,16 @@
 import os
-import torch
 import shutil
-import numpy as np
-import matplotlib.pyplot as plt
-from torchvision.utils import make_grid
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from PIL import Image
+from torchvision.utils import make_grid
 
 
 def _read_image(path):
-    """ Read Image from path
+    """Read Image from path
 
     Replicate torchvision.io.read_image because Sherlock is annoying!
     (couldn't compile torchvision with libpng support)

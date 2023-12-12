@@ -2,12 +2,10 @@
 Generate pystac collection from a geoparquet 
 """
 
-import numpy as np
+from typing import Any, Dict
+
 import pystac
-import geopandas
-import pandas as pd
-from shapely import wkb, geometry
-from typing import Dict, Any
+from shapely import geometry
 
 
 def intersection_percent(item: pystac.Item, aoi: Dict[str, Any]) -> float:

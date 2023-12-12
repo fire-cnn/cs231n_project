@@ -1,11 +1,9 @@
 """ Custom HF Trainer class
 """
 
-from transformers import Trainer
-import torch
-
 import pdb
 
+import torch
 from torch import nn
 from transformers import Trainer
 

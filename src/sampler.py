@@ -1,21 +1,21 @@
-""" Build balanced samples when labels are un-balanced. 
-
-Modified code from: https://github.com/galatolofederico/pytorch-balanced-batch
-"""
-
 import torch
+import torch.utils.data
+import random
+from tqdm import tqdm
 
 is_torchvision_installed = True
 try:
     import torchvision
 except:
     is_torchvision_installed = False
-import torch.utils.data
-import random
-from tqdm import tqdm
 
 
 class BalancedBatchSampler(torch.utils.data.sampler.Sampler):
+    """Build balanced samples when labels are un-balanced.
+
+    Modified code from: https://github.com/galatolofederico/pytorch-balanced-batch
+    """
+
     def __init__(self, dataset, labels=None):
         if isinstance(dataset, torch.utils.data.dataset.Subset):
             labels = [inputs["labels"] for inputs in dataset]

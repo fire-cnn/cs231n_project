@@ -1,9 +1,9 @@
-import os
-import pandas as pd
-import numpy as np
 from pathlib import Path
-from tqdm import tqdm
+
+import numpy as np
+import pandas as pd
 from PIL import Image
+from tqdm import tqdm
 
 
 class Featurizer:

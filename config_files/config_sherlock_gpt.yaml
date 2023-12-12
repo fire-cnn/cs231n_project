@@ -2,10 +2,10 @@
 
 train:
   model_name: "gpt2"
-  path_to_train: "/oak/stanford/schools/ees/mburke/cnn_fire_fuel/data/train"
-  path_to_test: "/oak/stanford/schools/ees/mburke/cnn_fire_fuel/data/test"
-  tabular_data_path: "/oak/stanford/schools/ees/mburke/cnn_fire_fuel/cleaned_homes/augmented_dataset.csv"
-  output_dir: "/scratch/users/ihigueme/results_gpt2"
+  path_to_train: "/home/topcat/projects/cs231n_project/data/cleaned_images/train"
+  path_to_test: "/home/topcat/projects/cs231n_project/data/cleaned_images/test"
+  tabular_data_path: /mnt/sherlock/oak/cnn_fire_fuel/cleaned_homes/augmented_dataset.csv 
+  output_dir: "./models_gtp2/"
   resume_from_checkpoint: False
   epochs: 10
   learning_rate: 5e-5
@@ -24,16 +24,16 @@ prompts:
     - aspect
     - elev
     - slope_r25
-    - air_temperature
-    - dead_fuel_moisture_100hr 
-    - mean_vapor_pressure_deficit
-    - gpotential_evapotranspiration'
-    - precipitation_amount
-    - relative_humidity
-    - specific_humidity
-    - surface_downwelling_shortwave_flux_in_air
-    - wind_from_direction
-    - wind_speed
+#    - air_temperature
+#    - dead_fuel_moisture_100hr 
+#    - mean_vapor_pressure_deficit
+#    - gpotential_evapotranspiration'
+#    - precipitation_amount
+#    - relative_humidity
+#    - specific_humidity
+#    - surface_downwelling_shortwave_flux_in_air
+#    - wind_from_direction
+#    - wind_speed
     - age
     - riskToStru
     - firename
@@ -45,34 +45,44 @@ prompts:
     elev: Elevation,
     slope_r25: Slope,
     aspect: Aspect,
-    air_temperature: Temperature,
-    dead_fuel_moisture_100hr: Fuel Moisture,
-    mean_vapor_pressure_deficit: Vapor Pressure Deficit,
-    potential_evapotranspiration: Evapotranspiration,
-    precipitation_amount: Precipitation,
-    relative_humidity: Humidity,
-    specific_humidity: Specific Humidity,
-    wind_from_direction: Wind Direction,
-    wind_speed: Wind Speed,
-    surface_downwelling_shortwave_flux_in_air: Shortwave Flux,
+#    air_temperature: Temperature,
+#    dead_fuel_moisture_100hr: Fuel Moisture,
+#    mean_vapor_pressure_deficit: Vapor Pressure Deficit,
+#    potential_evapotranspiration: Evapotranspiration,
+#    precipitation_amount: Precipitation,
+#    relative_humidity: Humidity,
+#    specific_humidity: Specific Humidity,
+#    wind_from_direction: Wind Direction,
+#    wind_speed: Wind Speed,
+#    surface_downwelling_shortwave_flux_in_air: Shortwave Flux,
     age: Age,
     firename: Fire Name,
     riskToStru: Risk to structure
 
+  # template: >
+  #   This house is {} years old. It is located {} meters above sea level with a
+  #   slope of {}. Temperature is {} degrees. Relative humidity is {}.  Wind
+  #   speed is {}. The vapor pressure deficit is {} and the fuel moisture was {}.
+  #   The risk to structure is {}. The fire name is {}
+  # cols_template:
+  #   - age
+  #   - elev
+  #   - slope_r25
+  #   - air_temperature
+  #   - relative_humidity
+  #   - wind_speed
+  #   - mean_vapor_pressure_deficit 
+  #   - dead_fuel_moisture_100hr
+  #   - riskToStru
+  #   - firename
+
   template: >
     This house is {} years old. It is located {} meters above sea level with a
-    slope of {}. Temperature is {} degrees. Relative humidity is {}.  Wind
-    speed is {}. The vapor pressure deficit is {} and the fuel moisture was {}.
-    The risk to structure is {}. The fire name is {}
+    slope of {}. The risk to structure is {}. The fire name is {}
   cols_template:
     - age
     - elev
     - slope_r25
-    - air_temperature
-    - relative_humidity
-    - wind_speed
-    - mean_vapor_pressure_deficit 
-    - dead_fuel_moisture_100hr
     - riskToStru
     - firename
 

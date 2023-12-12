@@ -10,9 +10,10 @@ This routine reads point data from households and does the following:
 """
 
 import argparse
-import pandas as pd
-import geopandas as gpd
 from pathlib import Path
+
+import geopandas as gpd
+import pandas as pd
 
 from src.utils import remove_overalpping_geometries
 
@@ -49,6 +50,8 @@ def read_dataset(file, buffer_size, save_file):
 
     # Clean overlaps!
     gdf_clean = remove_overalpping_geometries(gdf, save_file)
+
+    return gdf_clean
 
 
 if __name__ == "__main__":

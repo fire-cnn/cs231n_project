@@ -1,27 +1,18 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-
-import pdb
 import torch
 from PIL import Image
-from pathlib import Path
-from torch.utils.data import Dataset, DataLoader
-from torchvision.io import read_image
-from torchvision.transforms import ToTensor
-from tqdm import tqdm
-from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset
+
+from src.prompts import prompting
 
 from torchvision.transforms import (
-    CenterCrop,
     Compose,
-    Normalize,
-    RandomHorizontalFlip,
-    RandomResizedCrop,
     Resize,
     ToTensor,
 )
-
-from src.prompts import prompting
 
 
 class NAIPImagery(Dataset):
@@ -116,6 +107,9 @@ class NAIPImagery(Dataset):
         # Tranform to tensor
         if self.transform:
             img = self.transform(img)
+        else:
+            # Apply compose and resize the image to 224x224
+            img = Compose([Resize((224, 224)), ToTensor()])(img)
 
         # Tokenize the text
         if self.tokenizer is not None:
@@ -124,11 +118,12 @@ class NAIPImagery(Dataset):
                 text=text_img,
                 truncation=True,
                 padding="max_length",
+                return_tensors="pt",
                 max_length=self.max_prompt_len,
             )
 
             out = {
-                "pixel_values": img,
+                "pixel_values": img[None, :],
                 "labels": label_img,
                 "input_ids": embeddings_dict["input_ids"],
                 "attention_mask": embeddings_dict["attention_mask"],

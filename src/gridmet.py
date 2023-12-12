@@ -4,9 +4,7 @@
 import pystac_client
 import planetary_computer
 import xarray as xr
-import rioxarray
 import numpy as np
-import pandas as pd
 import geopandas as gpd
 from affine import Affine
 
