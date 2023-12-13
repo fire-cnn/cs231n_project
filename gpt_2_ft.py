@@ -70,7 +70,7 @@ def compute_metrics(eval_pred):
 
 
 def validation(dataloader, device_):
-    r"""Validation function to evaluate model performance on a
+    """Validation function to evaluate model performance on a
     separate set of data.
 
     This function will return the true and predicted labels so we can use later
