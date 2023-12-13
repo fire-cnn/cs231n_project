@@ -5,7 +5,7 @@ train:
   path_to_train: "/home/topcat/projects/cs231n_project/data/cleaned_images/train"
   path_to_test: "/home/topcat/projects/cs231n_project/data/cleaned_images/test"
   tabular_data_path: /mnt/sherlock/oak/cnn_fire_fuel/cleaned_homes/augmented_dataset.csv 
-  output_dir: "./models_gtp2/"
+  output_dir: "/home/topcat/projects/cs231n_project/results_se/gpt_total"
   resume_from_checkpoint: False
   epochs: 10
   learning_rate: 5e-5
