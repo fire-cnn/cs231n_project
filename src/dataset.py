@@ -118,12 +118,11 @@ class NAIPImagery(Dataset):
                 text=text_img,
                 truncation=True,
                 padding="max_length",
-                return_tensors="pt",
                 max_length=self.max_prompt_len,
             )
 
             out = {
-                "pixel_values": img[None, :],
+                "pixel_values": img,
                 "labels": label_img,
                 "input_ids": embeddings_dict["input_ids"],
                 "attention_mask": embeddings_dict["attention_mask"],

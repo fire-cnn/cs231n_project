@@ -13,7 +13,7 @@ def prompting(
     id_var,
     final_prompt,
     label_column,
-    special_tokens=("<startoftext>", "<endoftext>", "<pad>"),
+    special_tokens=None,
     round_dec=3,
     add_response=True,
     template=None,
@@ -54,7 +54,10 @@ def prompting(
         Dict of strings
     """
 
-    start, end, pad = special_tokens
+    if special_tokens is None:
+        start, end, pad = ("<startoftext>", "<endoftext>", "<pad>")
+    elif special_tokens is False:
+        start, end, pad = ("", "", "")
 
     if prompt_type == "template" and template is None:
         raise ValueError("Template exepcted!")
